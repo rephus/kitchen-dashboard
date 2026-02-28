@@ -1,0 +1,23 @@
+{
+  "name": "kitchen-ui",
+  "version": "1.0.0",
+  "description": "Kitchen dashboard UI for Home Assistant",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "kitchen",
+    "home-assistant",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}

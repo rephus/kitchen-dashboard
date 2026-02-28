@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Kitchen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="screen active">
+        <header class="top-bar">
+            <div class="clock" id="clock">--:--</div>
+            <div class="top-bar-right">
+                <div class="weather-info">
+                    <span id="weather-icon">--</span>
+                    <span id="temperature">--°</span>
+                </div>
+                <div class="top-bar-sep">|</div>
+                <div class="power-info">
+                    <span class="power-icon">⚡</span>
+                    <span id="power">--</span><span class="power-unit">W</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="quick-actions">
+            <button class="action-btn" id="btn-timer">
+                <div class="btn-icon">⏱</div>
+                <div class="btn-label">Timer</div>
+            </button>
+            <button class="action-btn" id="btn-notify">
+                <div class="btn-icon">🔔</div>
+                <div class="btn-label">Food Ready!</div>
+            </button>
+            <button class="action-btn" id="btn-shopping">
+                <div class="btn-icon">🛒</div>
+                <div class="btn-label">Shopping</div>
+            </button>
+            <button class="action-btn" id="btn-recipes">
+                <div class="btn-icon">📖</div>
+                <div class="btn-label">Recipes</div>
+            </button>
+        </div>
+
+        <!-- Active Timers Preview -->
+        <div class="active-timers" id="active-timers" style="display:none">
+            <div class="section-title">Active Timers</div>
+            <div id="timer-previews"></div>
+        </div>
+
+        <!-- Notification feedback -->
+        <div class="notify-feedback" id="notify-feedback"></div>
+
+        <!-- HA Connection Status -->
+        <div class="ha-status" id="ha-status">
+            <span class="ha-dot"></span>
+            <span class="ha-text">Connecting...</span>
+        </div>
+    </div>
+
+    <!-- Timer Screen -->
+    <div id="timer-screen" class="screen">
+        <header class="screen-header">
+            <button class="back-btn" id="back-to-dashboard">←</button>
+            <h1>Kitchen Timers</h1>
+        </header>
+
+        <div class="timer-presets">
+            <button class="preset-btn" data-minutes="1">1 min</button>
+            <button class="preset-btn" data-minutes="3">3 min</button>
+            <button class="preset-btn" data-minutes="5">5 min</button>
+            <button class="preset-btn" data-minutes="10">10 min</button>
+            <button class="preset-btn" data-minutes="15">15 min</button>
+            <button class="preset-btn" data-minutes="30">30 min</button>
+            <button class="preset-btn" data-minutes="60">1 hour</button>
+        </div>
+
+        <div class="timers-list" id="timers-list"></div>
+    </div>
+
+    <!-- Shopping List Screen -->
+    <div id="shopping-screen" class="screen">
+        <header class="screen-header">
+            <button class="back-btn" data-back="dashboard">←</button>
+            <h1>Shopping List</h1>
+        </header>
+
+        <div class="shopping-input-row">
+            <input type="text" id="shopping-input" placeholder="Add item..." autocomplete="off">
+            <button class="add-item-btn" id="add-item-btn">+</button>
+        </div>
+
+        <div class="shopping-list" id="shopping-list"></div>
+
+        <!-- Big mic button at bottom -->
+        <div class="mic-area">
+            <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
+            <button class="mic-big-btn" id="mic-btn">
+                <span class="mic-big-icon">🎤</span>
+            </button>
+        </div>
+        <div class="mic-status" id="mic-status"></div>
+    </div>
+
+    <!-- Recipes Screen -->
+    <div id="recipes-screen" class="screen">
+        <header class="screen-header">
+            <button class="back-btn" data-back="dashboard">←</button>
+            <h1>Recipes</h1>
+        </header>
+        <div class="placeholder-msg">Under construction</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
