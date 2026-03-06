@@ -16,6 +16,11 @@
         <header class="top-bar">
             <div class="clock" id="clock">--:--</div>
             <div class="top-bar-right">
+                <div class="battery-info" id="battery-info">
+                    <span class="battery-icon" id="battery-icon">🔋</span>
+                    <span id="battery-level">--%</span>
+                </div>
+                <div class="top-bar-sep">|</div>
                 <div class="weather-info">
                     <span id="weather-icon">--</span>
                     <span id="temperature">--°</span>
@@ -93,18 +98,18 @@
         <div class="shopping-input-row">
             <input type="text" id="shopping-input" placeholder="Add item..." autocomplete="off">
             <button class="add-item-btn" id="add-item-btn">+</button>
+            <button class="mic-inline-btn mic-big-btn" id="mic-btn">
+                <span class="mic-big-icon">🎤</span>
+            </button>
         </div>
 
         <div class="shopping-list" id="shopping-list"></div>
 
-        <!-- Big mic button at bottom -->
-        <div class="mic-area">
-            <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
-            <button class="mic-big-btn" id="mic-btn">
-                <span class="mic-big-icon">🎤</span>
-            </button>
-        </div>
+        <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
         <div class="mic-status" id="mic-status"></div>
+        <div class="mic-help" id="mic-help" style="display:none">
+            <a href="chrome://flags/#unsafely-treat-insecure-origin-as-secure">Enable mic: open this Chrome flag</a> and add <code>http://192.168.2.20:8002</code>
+        </div>
     </div>
 
     <!-- Recipes Screen -->
@@ -113,7 +118,17 @@
             <button class="back-btn" data-back="dashboard">←</button>
             <h1>Recipes</h1>
         </header>
-        <div class="placeholder-msg">Under construction</div>
+        <div class="recipes-search">
+            <input type="text" id="recipes-search-input" placeholder="Search recipes..." autocomplete="off">
+        </div>
+        <div id="recipes-list" class="recipes-list"></div>
+        <div id="recipe-detail" class="recipe-detail" style="display:none">
+            <header class="screen-header">
+                <button class="back-btn" id="recipe-detail-back">←</button>
+                <h1 id="recipe-detail-title">Recipe</h1>
+            </header>
+            <div id="recipe-detail-content" class="recipe-detail-content"></div>
+        </div>
     </div>
 
     <script src="app.js"></script>

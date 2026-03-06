@@ -16,7 +16,8 @@ const HA_CONFIG = {
     sensors: {
         temperature: 'sensor.esphome_salon_temperature',
         weather: 'weather.pirateweather',
-        power: 'sensor.potencia_total'
+        power: 'sensor.power_load_fronius_power_flow_0_192_168_2_109',
+        battery: 'sensor.samsung_galaxy_s9_battery_level'
     }
 };
 
@@ -132,6 +133,55 @@ function writeShoppingList(items) {
 }
 
 // ===================
+// Recipes (markdown files in recipes/)
+// ===================
+const RECIPES_DIR = path.join(__dirname, 'recipes');
+const RECIPE_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
+
+function findRecipeImage(slug) {
+    for (const ext of RECIPE_IMAGE_EXTS) {
+        const filename = slug + ext;
+        const fullPath = path.join(RECIPES_DIR, filename);
+        if (fs.existsSync(fullPath)) {
+            return `/recipes/${filename}`;
+        }
+    }
+    return null;
+}
+
+function listRecipes() {
+    if (!fs.existsSync(RECIPES_DIR)) return [];
+    const files = fs.readdirSync(RECIPES_DIR)
+        .filter(f => f.endsWith('.md'))
+        .map(f => {
+            const slug = f.replace(/\.md$/, '');
+            let title = slug.replace(/-/g, ' ');
+            try {
+                const content = fs.readFileSync(path.join(RECIPES_DIR, f), 'utf8');
+                const m = content.match(/^#\s+(.+)/m);
+                if (m) title = m[1].trim();
+            } catch (e) { /* use slug as title */ }
+            const image = findRecipeImage(slug);
+            return { slug, title, image };
+        });
+    return files.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function getRecipe(slug) {
+    const safeSlug = path.basename(slug, '.md').replace(/[^a-z0-9-]/gi, '');
+    const filePath = path.join(RECIPES_DIR, safeSlug + '.md');
+    if (!fs.existsSync(filePath)) return null;
+    const content = fs.readFileSync(filePath, 'utf8');
+    const titleMatch = content.match(/^#\s+(.+)/m);
+    return {
+        slug: safeSlug,
+        title: titleMatch ? titleMatch[1].trim() : safeSlug,
+        content,
+        image: findRecipeImage(safeSlug)
+    };
+}
+
+// ===================
 // API Routes
 // ===================
 async function handleAPI(req, res, pathname) {
@@ -169,8 +219,9 @@ async function handleAPI(req, res, pathname) {
                         last_updated: state.last_updated
                     };
                 } else {
+                    const val = parseFloat(state.state);
                     sensors[key] = {
-                        value: parseFloat(state.state),
+                        value: isNaN(val) ? null : val,
                         unit: state.attributes?.unit_of_measurement || '',
                         friendly_name: state.attributes?.friendly_name || key,
                         last_updated: state.last_updated
@@ -216,6 +267,25 @@ async function handleAPI(req, res, pathname) {
         const items = JSON.parse(body);
         writeShoppingList(items);
         res.end(JSON.stringify({ ok: true }));
+        return;
+    }
+
+    // GET /api/recipes - List recipes
+    if (pathname === '/api/recipes' && req.method === 'GET') {
+        res.end(JSON.stringify(listRecipes()));
+        return;
+    }
+
+    // GET /api/recipes/:slug - Get one recipe (markdown content)
+    const recipeMatch = pathname.match(/^\/api\/recipes\/([^/]+)$/);
+    if (recipeMatch && req.method === 'GET') {
+        const recipe = getRecipe(recipeMatch[1]);
+        if (!recipe) {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: 'Recipe not found' }));
+            return;
+        }
+        res.end(JSON.stringify(recipe));
         return;
     }
 

@@ -113,6 +113,28 @@ html, body {
     margin-left: 1px;
 }
 
+.battery-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 18px;
+    color: var(--text-dim);
+}
+
+.battery-icon {
+    font-size: 16px;
+}
+
+#battery-level {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.battery-low { color: var(--accent); }
+.battery-mid { color: var(--warning); }
+.battery-high { color: var(--success); }
+.battery-charging { color: var(--success); }
+
 .weather-info {
     display: flex;
     align-items: center;
@@ -428,16 +450,16 @@ html, body {
    =================== */
 .shopping-input-row {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .shopping-input-row input {
     flex: 1;
     background: var(--surface);
     border: none;
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
+    border-radius: 8px;
+    padding: 10px 12px;
     color: var(--text);
     font-size: 16px;
     outline: none;
@@ -455,9 +477,10 @@ html, body {
     background: var(--accent);
     border: none;
     color: white;
-    width: 50px;
-    border-radius: var(--radius-sm);
-    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    font-size: 22px;
     font-weight: 700;
     cursor: pointer;
     flex-shrink: 0;
@@ -495,6 +518,18 @@ html, body {
     transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
+/* Inline mic button next to + */
+.mic-inline-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    padding: 0;
+}
+
+.mic-inline-btn .mic-big-icon {
+    font-size: 22px;
+}
+
 .mic-big-btn:active {
     transform: scale(0.92);
 }
@@ -526,6 +561,25 @@ html, body {
 
 .mic-status.heard {
     color: var(--success);
+}
+
+.mic-help {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 8px;
+    padding: 0 16px;
+}
+
+.mic-help a {
+    color: var(--accent);
+}
+
+.mic-help code {
+    background: var(--surface-light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
 }
 
 .shopping-list {
@@ -605,6 +659,146 @@ html, body {
 .clear-checked-btn:active {
     background: var(--surface-light);
 }
+
+/* ===================
+   Recipes
+   =================== */
+.recipes-search {
+    padding: 0 16px 8px;
+}
+
+.recipes-search input {
+    width: 100%;
+    background: var(--surface);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+}
+
+.recipes-search input::placeholder {
+    color: var(--text-dim);
+}
+
+.recipes-search input:focus {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.recipes-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-content: flex-start;
+}
+
+.recipe-card {
+    width: 130px;
+    height: 200px;
+    padding: 0;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.recipe-card-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.recipe-thumb {
+    flex: 1;
+    min-height: 0;
+    border-radius: 10px 10px 0 0;
+    overflow: hidden;
+    background: var(--surface-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.recipe-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.recipe-thumb-placeholder {
+    color: var(--text-dim);
+}
+
+.recipe-title {
+    flex-shrink: 0;
+    height: 44px;
+    padding: 6px 6px 8px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recipe-card:hover,
+.recipe-card:active {
+    background: var(--surface-light);
+}
+
+.recipes-empty {
+    color: var(--text-dim);
+    padding: 20px;
+    text-align: center;
+}
+
+.recipe-detail {
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    background: var(--bg);
+    z-index: 1;
+}
+
+.recipe-detail-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px 24px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.recipe-detail-image {
+    margin: 0 0 12px;
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 200px;
+}
+
+.recipe-detail-image img {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.recipe-detail-content h1 { font-size: 1.5em; margin: 0 0 12px; }
+.recipe-detail-content h2 { font-size: 1.2em; margin: 16px 0 8px; color: var(--text-dim); }
+.recipe-detail-content h3 { font-size: 1.05em; margin: 12px 0 6px; }
+.recipe-detail-content ul, .recipe-detail-content ol { margin: 8px 0; padding-left: 24px; }
+.recipe-detail-content li { margin: 4px 0; }
+.recipe-detail-content p { margin: 8px 0; }
 
 /* ===================
    Placeholder Screen

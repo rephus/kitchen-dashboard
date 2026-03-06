@@ -30,7 +30,159 @@ document.getElementById('back-to-dashboard').addEventListener('click', () => nav
 document.getElementById('btn-timer').addEventListener('click', () => navigate('timer-screen'));
 document.getElementById('btn-notify').addEventListener('click', sendFoodReady);
 document.getElementById('btn-shopping').addEventListener('click', () => navigate('shopping-screen'));
-document.getElementById('btn-recipes').addEventListener('click', () => navigate('recipes-screen'));
+document.getElementById('btn-recipes').addEventListener('click', () => {
+    navigate('recipes-screen');
+    loadRecipesList();
+});
+
+// ===================
+// Recipes
+// ===================
+const recipesListEl = document.getElementById('recipes-list');
+const recipeDetailEl = document.getElementById('recipe-detail');
+const recipeDetailTitleEl = document.getElementById('recipe-detail-title');
+const recipeDetailContentEl = document.getElementById('recipe-detail-content');
+let allRecipes = [];
+
+function simpleMarkdownToHtml(md) {
+    const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inline = s => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+    const lines = md.split('\n');
+    const out = [];
+    let inUl = false, inOl = false;
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const h1 = raw.match(/^# (.+)$/);
+        const h2 = raw.match(/^## (.+)$/);
+        const h3 = raw.match(/^### (.+)$/);
+        const ulItem = raw.match(/^[-*] (.+)$/);
+        const olItem = raw.match(/^(\d+)\. (.+)$/);
+        if (h3) {
+            if (inUl) { out.push('</ul>'); inUl = false; }
+            if (inOl) { out.push('</ol>'); inOl = false; }
+            out.push('<h3>' + inline(escape(h3[1])) + '</h3>');
+            continue;
+        }
+        if (h2) {
+            if (inUl) { out.push('</ul>'); inUl = false; }
+            if (inOl) { out.push('</ol>'); inOl = false; }
+            out.push('<h2>' + inline(escape(h2[1])) + '</h2>');
+            continue;
+        }
+        if (h1) {
+            if (inUl) { out.push('</ul>'); inUl = false; }
+            if (inOl) { out.push('</ol>'); inOl = false; }
+            out.push('<h1>' + inline(escape(h1[1])) + '</h1>');
+            continue;
+        }
+        if (ulItem) {
+            if (inOl) { out.push('</ol>'); inOl = false; }
+            if (!inUl) { out.push('<ul>'); inUl = true; }
+            out.push('<li>' + inline(escape(ulItem[1])) + '</li>');
+            continue;
+        }
+        if (olItem) {
+            if (inUl) { out.push('</ul>'); inUl = false; }
+            if (!inOl) { out.push('<ol>'); inOl = true; }
+            out.push('<li>' + inline(escape(olItem[2])) + '</li>');
+            continue;
+        }
+        if (inUl) { out.push('</ul>'); inUl = false; }
+        if (inOl) { out.push('</ol>'); inOl = false; }
+        if (raw.trim()) {
+            out.push('<p>' + inline(escape(raw)) + '</p>');
+        }
+    }
+    if (inUl) out.push('</ul>');
+    if (inOl) out.push('</ol>');
+    return out.join('\n');
+}
+
+function renderRecipesList(filterText = '') {
+    const q = filterText.trim().toLowerCase();
+    recipesListEl.innerHTML = '';
+
+    if (!allRecipes.length) {
+        recipesListEl.innerHTML = '<p class="recipes-empty">No recipes yet.</p>';
+        return;
+    }
+
+    const filtered = q
+        ? allRecipes.filter(r =>
+            r.title.toLowerCase().includes(q) ||
+            (r.slug && r.slug.toLowerCase().includes(q))
+        )
+        : allRecipes;
+
+    if (!filtered.length) {
+        recipesListEl.innerHTML = '<p class="recipes-empty">No recipes match your search.</p>';
+        return;
+    }
+
+    filtered.forEach(r => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'recipe-card';
+        btn.innerHTML = `
+                <div class="recipe-card-inner">
+                    <div class="recipe-thumb ${r.image ? '' : 'recipe-thumb-placeholder'}">
+                        ${r.image ? `<img src="${r.image}" alt="${r.title}">` : '📖'}
+                    </div>
+                    <div class="recipe-title">${r.title}</div>
+                </div>
+            `;
+        btn.addEventListener('click', () => openRecipe(r.slug));
+        recipesListEl.appendChild(btn);
+    });
+}
+
+async function loadRecipesList() {
+    recipesListEl.innerHTML = '';
+    const searchInput = document.getElementById('recipes-search-input');
+    if (searchInput) searchInput.value = '';
+
+    try {
+        const res = await fetch('/api/recipes');
+        allRecipes = await res.json();
+        renderRecipesList();
+    } catch (e) {
+        recipesListEl.innerHTML = '<p class="recipes-empty">Could not load recipes.</p>';
+    }
+}
+
+async function openRecipe(slug) {
+    try {
+        const res = await fetch(`/api/recipes/${encodeURIComponent(slug)}`);
+        const recipe = await res.json();
+        recipeDetailTitleEl.textContent = recipe.title;
+        let html = '';
+        if (recipe.image) {
+            html += `
+                <div class="recipe-detail-image">
+                    <img src="${recipe.image}" alt="${recipe.title}">
+                </div>
+            `;
+        }
+        html += simpleMarkdownToHtml(recipe.content);
+        recipeDetailContentEl.innerHTML = html;
+        recipesListEl.style.display = 'none';
+        recipeDetailEl.style.display = 'flex';
+    } catch (e) {
+        recipeDetailContentEl.innerHTML = '<p>Could not load recipe.</p>';
+    }
+}
+
+document.getElementById('recipe-detail-back').addEventListener('click', () => {
+    recipeDetailEl.style.display = 'none';
+    recipesListEl.style.display = '';
+});
+
+const recipesSearchInput = document.getElementById('recipes-search-input');
+if (recipesSearchInput) {
+    recipesSearchInput.addEventListener('input', (e) => {
+        renderRecipesList(e.target.value || '');
+    });
+}
 
 // ===================
 // Clock
@@ -64,8 +216,19 @@ async function fetchSensors() {
             document.getElementById('weather-icon').textContent = icon;
         }
 
-        if (data.power) {
-            const w = Math.round(data.power.value);
+        if (data.battery && data.battery.value != null) {
+            const pct = Math.round(data.battery.value);
+            const levelEl = document.getElementById('battery-level');
+            const iconEl = document.getElementById('battery-icon');
+            levelEl.textContent = `${pct}%`;
+            iconEl.textContent = pct <= 20 ? '🪫' : '🔋';
+            levelEl.className = pct <= 20 ? 'battery-low'
+                : pct <= 50 ? 'battery-mid'
+                : 'battery-high';
+        }
+
+        if (data.power && data.power.value != null) {
+            const w = Math.abs(Math.round(data.power.value));
             const el = document.getElementById('power');
             el.textContent = w;
             el.className = w > 4000 ? 'power-high' : w > 2000 ? 'power-mid' : 'power-low';
@@ -103,6 +266,18 @@ async function sendFoodReady() {
     btn.classList.add('sending');
 
     try {
+        // notify via ntfy.sh
+        const res = await fetch('https://ntfy.sh/rephus-s25-notif-apps', {
+            method: 'POST',
+            headers: {
+                'Title': 'cocina',
+                'Message': 'La comida esta lista'
+            }
+        });
+        const data = await res.json();
+        console.log(data);
+        /*
+        // notify via home assistant 
         const res = await fetch('/api/service/notify/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -110,11 +285,11 @@ async function sendFoodReady() {
                 message: '🍽️ Food is ready!',
                 title: 'Kitchen'
             })
-        });
-        const data = await res.json();
+        });*/
+        const isSuccess = data.event === 'message' 
 
-        feedback.textContent = data.success ? 'Notification sent!' : 'Failed to send';
-        feedback.style.color = data.success ? 'var(--success)' : 'var(--accent)';
+        feedback.textContent = isSuccess ? 'Notification sent!' : 'Failed to send';
+        feedback.style.color = isSuccess ? 'var(--success)' : 'var(--accent)';
     } catch (e) {
         feedback.textContent = 'Failed to send';
         feedback.style.color = 'var(--accent)';
@@ -388,7 +563,8 @@ function renderShoppingList() {
 function addShoppingItem(text) {
     text = text.trim();
     if (!text) return;
-    shoppingItems.push({ text, checked: false });
+    // Add new items to the top of the list
+    shoppingItems.unshift({ text, checked: false });
     saveShoppingList();
     renderShoppingList();
 }
@@ -461,7 +637,9 @@ function initVoice() {
 
             if (event.results[i].isFinal) {
                 const items = splitIntoItems(transcript);
-                items.forEach(item => addShoppingItem(item));
+                // Add items so that they appear at the top,
+                // while preserving the spoken order.
+                items.slice().reverse().forEach(item => addShoppingItem(item));
 
                 if (items.length > 0) {
                     micStatus.textContent = `+ ${items.join(', ')}`;
@@ -479,7 +657,10 @@ function initVoice() {
     };
 
     recognition.onerror = (event) => {
-        if (event.error === 'no-speech') {
+        if (event.error === 'not-allowed') {
+            micStatus.textContent = 'Microphone blocked (needs HTTPS)';
+            document.getElementById('mic-help').style.display = '';
+        } else if (event.error === 'no-speech') {
             micStatus.textContent = 'No speech detected, try again';
         } else if (event.error !== 'aborted') {
             micStatus.textContent = `Error: ${event.error}`;

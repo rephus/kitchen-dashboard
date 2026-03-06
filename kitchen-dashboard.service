@@ -1,0 +1,22 @@
+#This files go to /etc/systemd/system/app.service
+# Then run
+# sudo ln -s /home/rephus/apps/kitchen-dashboard/kitchen-dashboard.service /etc/systemd/system/kitchen-dashboard.service
+# sudo systemctl daemon-reload
+# sudo systemctl enable kitchen-dashboard
+# sudo systemctl start kitchen-dashboard
+[Unit]
+Description=kitchen-dashboard
+Documentation=man:kitchen-dashboard(1)
+After=network.target
+
+[Service]
+WorkingDirectory=/home/rephus/apps/kitchen-dashboard
+ExecStart=/home/rephus/.nvm/versions/node/v18.19.0/bin/node server.js
+Restart=on-failure
+SuccessExitStatus=3 4
+RestartForceExitStatus=3 4
+# Ensure it runs as your user
+User=rephus
+
+[Install]
+WantedBy=default.target
