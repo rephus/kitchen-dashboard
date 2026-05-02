@@ -185,6 +185,85 @@ if (recipesSearchInput) {
 }
 
 // ===================
+// Recipe Scanner (Camera)
+// ===================
+const scanRecipeBtn = document.getElementById('scan-recipe-btn');
+const recipeCameraInput = document.getElementById('recipe-camera-input');
+const scanStatusEl = document.getElementById('scan-status');
+
+function showScanStatus(message, type = 'info') {
+    scanStatusEl.textContent = message;
+    scanStatusEl.className = `scan-status scan-status-${type}`;
+    scanStatusEl.style.display = 'block';
+    if (type === 'success' || type === 'error') {
+        setTimeout(() => {
+            scanStatusEl.style.display = 'none';
+        }, 5000);
+    }
+}
+
+if (scanRecipeBtn && recipeCameraInput) {
+    scanRecipeBtn.addEventListener('click', () => {
+        recipeCameraInput.click();
+    });
+
+    recipeCameraInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Reset input
+        e.target.value = '';
+
+        try {
+            showScanStatus('📸 Scanning recipe...', 'info');
+
+            // Convert to base64
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve, reject) => {
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+            });
+            reader.readAsDataURL(file);
+
+            const base64Image = await base64Promise;
+
+            // Send to backend
+            const response = await fetch('/api/recipes/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: base64Image,
+                    mediaType: file.type
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Scan failed');
+            }
+
+            const result = await response.json();
+            showScanStatus(`✅ Recipe saved: ${result.title}`, 'success');
+
+            // Reload recipes list
+            await loadRecipesList();
+
+            // Auto-open the new recipe
+            setTimeout(() => {
+                openRecipe(result.slug);
+            }, 1000);
+
+        } catch (error) {
+            console.error('Recipe scan error:', error);
+            showScanStatus(`❌ Scan failed: ${error.message}`, 'error');
+        }
+    });
+}
+
+// ===================
 // Clock
 // ===================
 function updateClock() {

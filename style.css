@@ -686,6 +686,60 @@ html, body {
     box-shadow: 0 0 0 2px var(--accent);
 }
 
+.recipes-toolbar {
+    padding: 0 16px 12px;
+}
+
+.scan-recipe-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.15s, opacity 0.15s;
+}
+
+.scan-recipe-btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+}
+
+.scan-icon {
+    font-size: 20px;
+}
+
+.scan-status {
+    padding: 8px 16px;
+    margin: 0 16px 8px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.scan-status-info {
+    background: var(--surface);
+    color: var(--text);
+}
+
+.scan-status-success {
+    background: rgba(74, 222, 128, 0.2);
+    color: var(--success);
+}
+
+.scan-status-error {
+    background: rgba(233, 69, 96, 0.2);
+    color: var(--accent);
+}
+
 .recipes-list {
     flex: 1;
     overflow-y: auto;

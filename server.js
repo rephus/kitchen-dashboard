@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const Anthropic = require('@anthropic-ai/sdk');
 
 // Load .env
 require('dotenv').config();
@@ -36,6 +37,11 @@ const MIME_TYPES = {
     '.ogg': 'audio/ogg',
     '.webp': 'image/webp'
 };
+
+// Initialize Anthropic client
+const anthropic = process.env.ANTHROPIC_API_KEY
+    ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    : null;
 
 // ===================
 // Home Assistant API
@@ -181,6 +187,110 @@ function getRecipe(slug) {
     };
 }
 
+/**
+ * Scan recipe from base64 image using Claude Vision API
+ */
+async function scanRecipeFromImage(base64Image, mediaType) {
+    if (!anthropic) {
+        throw new Error('ANTHROPIC_API_KEY not configured');
+    }
+
+    const message = await anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2048,
+        messages: [
+            {
+                role: 'user',
+                content: [
+                    {
+                        type: 'image',
+                        source: {
+                            type: 'base64',
+                            media_type: mediaType,
+                            data: base64Image,
+                        },
+                    },
+                    {
+                        type: 'text',
+                        text: `Extract the recipe from this image and format it in Spanish markdown following this EXACT structure:
+
+# [Recipe Name]
+
+## Ingredientes
+
+- [ingredient with quantity]
+- [ingredient with quantity]
+...
+
+## Elaboración
+
+1. [step]
+2. [step]
+...
+
+IMPORTANT RULES:
+- Use Spanish language for all text
+- Keep ingredient quantities concise (e.g., "1 kg tomate", "200 ml aceite")
+- Use abbreviations: cda (cucharada/tablespoon), cdta (cucharadita/teaspoon), g (gramos), ml (mililitros), kg (kilogramos)
+- Number the steps in "Elaboración" section
+- If there are subsections (like "Sofrito", "Caldo", etc.), include them as ## sections
+- Extract ALL visible ingredients and steps from the image
+- If some text is unclear, use your best judgment but stay faithful to what you can see
+- Output ONLY the markdown, no additional commentary
+
+Begin:`
+                    }
+                ],
+            },
+        ],
+    });
+
+    return message.content[0].text.trim();
+}
+
+/**
+ * Save scanned recipe (markdown + image)
+ */
+function saveScannedRecipe(markdown, base64Image, mediaType) {
+    if (!fs.existsSync(RECIPES_DIR)) {
+        fs.mkdirSync(RECIPES_DIR, { recursive: true });
+    }
+
+    // Extract title from markdown to generate slug
+    const titleMatch = markdown.match(/^#\s+(.+)/m);
+    const title = titleMatch ? titleMatch[1].trim() : 'recipe';
+    const slug = title.toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')  // Remove accents
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    // Determine image extension from media type
+    const extMap = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/gif': '.gif'
+    };
+    const ext = extMap[mediaType] || '.jpg';
+
+    // Save markdown
+    const mdPath = path.join(RECIPES_DIR, `${slug}.md`);
+    fs.writeFileSync(mdPath, markdown, 'utf8');
+
+    // Save image
+    const imagePath = path.join(RECIPES_DIR, `${slug}${ext}`);
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+    fs.writeFileSync(imagePath, imageBuffer);
+
+    return {
+        slug,
+        title,
+        mdPath,
+        imagePath,
+        image: `/recipes/${slug}${ext}`
+    };
+}
+
 // ===================
 // API Routes
 // ===================
@@ -286,6 +396,47 @@ async function handleAPI(req, res, pathname) {
             return;
         }
         res.end(JSON.stringify(recipe));
+        return;
+    }
+
+    // POST /api/recipes/scan - Scan recipe from image
+    if (pathname === '/api/recipes/scan' && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+
+            const data = JSON.parse(body);
+            if (!data.image || !data.mediaType) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'Missing image or mediaType' }));
+                return;
+            }
+
+            // Extract recipe using Claude Vision
+            console.log('Scanning recipe with Claude Vision...');
+            const markdown = await scanRecipeFromImage(data.image, data.mediaType);
+
+            // Save recipe and image
+            const result = saveScannedRecipe(markdown, data.image, data.mediaType);
+            console.log(`✓ Saved recipe: ${result.slug}`);
+
+            res.end(JSON.stringify({
+                success: true,
+                slug: result.slug,
+                title: result.title,
+                image: result.image
+            }));
+        } catch (error) {
+            console.error('Recipe scan error:', error);
+            res.statusCode = 500;
+            res.end(JSON.stringify({
+                error: 'Failed to scan recipe',
+                message: error.message
+            }));
+        }
         return;
     }
 
