@@ -847,6 +847,7 @@ html, body {
 }
 
 .recipe-detail-image {
+    position: relative;
     margin: 0 0 12px;
     border-radius: 12px;
     overflow: hidden;
@@ -858,6 +859,107 @@ html, body {
     max-height: 200px;
     object-fit: cover;
     display: block;
+}
+
+.recipe-detail-image-empty {
+    height: 60px;
+    background: var(--card-bg, rgba(255,255,255,0.05));
+}
+
+.recipe-edit-btn {
+    background: var(--surface);
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.recipe-edit-btn:active { background: var(--surface-light); }
+
+.recipe-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+
+.recipe-edit-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+.recipe-edit-form input[type="text"] {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+}
+
+.recipe-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.recipe-edit-actions button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+#recipe-edit-cancel {
+    background: var(--surface-light, rgba(255,255,255,0.08));
+    color: var(--text);
+}
+
+#recipe-edit-save {
+    background: var(--accent, #4a90e2);
+    color: #fff;
+}
+
+.recipe-regen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.recipe-regen-btn:hover { background: rgba(0, 0, 0, 0.75); }
+.recipe-regen-btn:disabled { opacity: 0.6; cursor: wait; }
+.recipe-regen-btn.spinning { animation: recipe-regen-spin 0.8s linear infinite; }
+
+@keyframes recipe-regen-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .recipe-detail-content h1 { font-size: 1.5em; margin: 0 0 12px; }

@@ -166,21 +166,31 @@ async function loadRecipesList() {
     }
 }
 
+let currentRecipeSlug = null;
+let currentRecipe = null;
+
+function renderRecipeDetail(recipe) {
+    currentRecipe = recipe;
+    recipeDetailTitleEl.textContent = recipe.title;
+    let html = `
+        <div class="recipe-detail-image${recipe.image ? '' : ' recipe-detail-image-empty'}">
+            ${recipe.image ? `<img src="${recipe.image}" alt="${recipe.title}">` : ''}
+            <button class="recipe-regen-btn" id="recipe-regen-btn" title="Regenerate image">⟳</button>
+        </div>
+    `;
+    html += simpleMarkdownToHtml(recipe.content);
+    recipeDetailContentEl.innerHTML = html;
+    const regenBtn = document.getElementById('recipe-regen-btn');
+    if (regenBtn) regenBtn.addEventListener('click', () => regenerateCurrentImage());
+}
+
 async function openRecipe(slug) {
     try {
+        currentRecipeSlug = slug;
         const res = await fetch(`/api/recipes/${encodeURIComponent(slug)}`);
         const recipe = await res.json();
-        recipeDetailTitleEl.textContent = recipe.title;
-        let html = '';
-        if (recipe.image) {
-            html += `
-                <div class="recipe-detail-image">
-                    <img src="${recipe.image}" alt="${recipe.title}">
-                </div>
-            `;
-        }
-        html += simpleMarkdownToHtml(recipe.content);
-        recipeDetailContentEl.innerHTML = html;
+        renderRecipeDetail(recipe);
+        closeRecipeEditForm();
         recipesListEl.style.display = 'none';
         recipeDetailEl.style.display = 'flex';
     } catch (e) {
@@ -189,10 +199,96 @@ async function openRecipe(slug) {
     }
 }
 
+async function regenerateCurrentImage() {
+    if (!currentRecipeSlug) return;
+    const btn = document.getElementById('recipe-regen-btn');
+    const img = document.querySelector('.recipe-detail-image img');
+    const wrapper = document.querySelector('.recipe-detail-image');
+    if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+    try {
+        const res = await fetch(`/api/recipes/${encodeURIComponent(currentRecipeSlug)}/regenerate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showToast(data.error || 'Could not regenerate image');
+            return;
+        }
+        const cacheBusted = `${data.image}?t=${Date.now()}`;
+        if (img) {
+            img.src = cacheBusted;
+        } else if (wrapper) {
+            const newImg = document.createElement('img');
+            newImg.src = cacheBusted;
+            newImg.alt = recipeDetailTitleEl.textContent || '';
+            wrapper.classList.remove('recipe-detail-image-empty');
+            wrapper.insertBefore(newImg, wrapper.firstChild);
+        }
+        showToast('Image updated');
+    } catch (e) {
+        showToast('Could not regenerate image');
+    } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+    }
+}
+
 document.getElementById('recipe-detail-back').addEventListener('click', () => {
+    closeRecipeEditForm();
     recipeDetailEl.style.display = 'none';
     recipesListEl.style.display = '';
 });
+
+const recipeEditFormEl = document.getElementById('recipe-edit-form');
+const recipeEditTitleInput = document.getElementById('recipe-edit-title');
+const recipeEditAltInput = document.getElementById('recipe-edit-alt');
+
+function openRecipeEditForm() {
+    if (!currentRecipe) return;
+    recipeEditTitleInput.value = currentRecipe.title || '';
+    recipeEditAltInput.value = currentRecipe.altName || '';
+    recipeEditFormEl.style.display = 'flex';
+    recipeEditTitleInput.focus();
+}
+
+function closeRecipeEditForm() {
+    recipeEditFormEl.style.display = 'none';
+}
+
+async function saveRecipeEdit() {
+    if (!currentRecipeSlug) return;
+    const payload = {
+        title: recipeEditTitleInput.value.trim(),
+        altName: recipeEditAltInput.value.trim(),
+    };
+    try {
+        const res = await fetch(`/api/recipes/${encodeURIComponent(currentRecipeSlug)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Could not save');
+            return;
+        }
+        renderRecipeDetail(data);
+        // Keep the cached list in sync so the search results show the new title.
+        const idx = allRecipes.findIndex(r => r.slug === data.slug);
+        if (idx >= 0) {
+            allRecipes[idx] = { ...allRecipes[idx], title: data.title, altName: data.altName };
+        }
+        closeRecipeEditForm();
+        showToast('Saved');
+    } catch (e) {
+        showToast('Could not save');
+    }
+}
+
+document.getElementById('recipe-edit-btn').addEventListener('click', openRecipeEditForm);
+document.getElementById('recipe-edit-cancel').addEventListener('click', closeRecipeEditForm);
+document.getElementById('recipe-edit-save').addEventListener('click', saveRecipeEdit);
 
 const recipesSearchInput = document.getElementById('recipes-search-input');
 if (recipesSearchInput) {

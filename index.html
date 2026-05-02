@@ -135,9 +135,24 @@
         <div id="recipes-list" class="recipes-list"></div>
         <div id="recipe-detail" class="recipe-detail" style="display:none">
             <header class="screen-header">
-                <button class="back-btn" id="recipe-detail-back">←</button>
+                <button class="back-btn" id="recipe-detail-back" data-back="recipes-screen">←</button>
                 <h1 id="recipe-detail-title">Recipe</h1>
+                <button class="recipe-edit-btn" id="recipe-edit-btn" title="Edit title and alt name">✎</button>
             </header>
+            <div id="recipe-edit-form" class="recipe-edit-form" style="display:none">
+                <label>
+                    <span>Title</span>
+                    <input type="text" id="recipe-edit-title" autocomplete="off">
+                </label>
+                <label>
+                    <span>Alternative name (used for image search)</span>
+                    <input type="text" id="recipe-edit-alt" autocomplete="off" placeholder="e.g. hummus">
+                </label>
+                <div class="recipe-edit-actions">
+                    <button type="button" id="recipe-edit-cancel">Cancel</button>
+                    <button type="button" id="recipe-edit-save">Save</button>
+                </div>
+            </div>
             <div id="recipe-detail-content" class="recipe-detail-content"></div>
         </div>
     </div>

@@ -157,6 +157,42 @@ function findRecipeImage(slug) {
     return null;
 }
 
+// Parse YAML-ish frontmatter at the top of a markdown file. Only supports flat
+// `key: value` pairs — that's all we need for `alt` and any future scalar metadata.
+function parseFrontmatter(raw) {
+    const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+    if (!m) return { meta: {}, body: raw };
+    const meta = {};
+    for (const line of m[1].split(/\r?\n/)) {
+        const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+        if (kv) meta[kv[1]] = kv[2].trim().replace(/^["'](.*)["']$/, '$1');
+    }
+    return { meta, body: m[2] };
+}
+
+function serializeFrontmatter(meta, body) {
+    const keys = Object.keys(meta).filter(k => meta[k] != null && String(meta[k]).trim() !== '');
+    if (keys.length === 0) return body.replace(/^\s+/, '');
+    const lines = keys.map(k => `${k}: ${meta[k]}`).join('\n');
+    return `---\n${lines}\n---\n\n${body.replace(/^\s+/, '')}`;
+}
+
+function readRecipeFile(slug) {
+    const safeSlug = path.basename(slug, '.md').replace(/[^a-z0-9-]/gi, '');
+    const filePath = path.join(RECIPES_DIR, safeSlug + '.md');
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const { meta, body } = parseFrontmatter(raw);
+    const titleMatch = body.match(/^#\s+(.+)/m);
+    return {
+        safeSlug,
+        filePath,
+        meta,
+        body,
+        title: titleMatch ? titleMatch[1].trim() : safeSlug,
+    };
+}
+
 function listRecipes() {
     if (!fs.existsSync(RECIPES_DIR)) return [];
     const files = fs.readdirSync(RECIPES_DIR)
@@ -164,29 +200,57 @@ function listRecipes() {
         .map(f => {
             const slug = f.replace(/\.md$/, '');
             let title = slug.replace(/-/g, ' ');
+            let altName = null;
             try {
-                const content = fs.readFileSync(path.join(RECIPES_DIR, f), 'utf8');
-                const m = content.match(/^#\s+(.+)/m);
-                if (m) title = m[1].trim();
+                const r = readRecipeFile(slug);
+                if (r) {
+                    title = r.title;
+                    altName = r.meta.alt || null;
+                }
             } catch (e) { /* use slug as title */ }
             const image = findRecipeImage(slug);
-            return { slug, title, image };
+            return { slug, title, altName, image };
         });
     return files.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 function getRecipe(slug) {
-    const safeSlug = path.basename(slug, '.md').replace(/[^a-z0-9-]/gi, '');
-    const filePath = path.join(RECIPES_DIR, safeSlug + '.md');
-    if (!fs.existsSync(filePath)) return null;
-    const content = fs.readFileSync(filePath, 'utf8');
-    const titleMatch = content.match(/^#\s+(.+)/m);
+    const r = readRecipeFile(slug);
+    if (!r) return null;
     return {
-        slug: safeSlug,
-        title: titleMatch ? titleMatch[1].trim() : safeSlug,
-        content,
-        image: findRecipeImage(safeSlug)
+        slug: r.safeSlug,
+        title: r.title,
+        altName: r.meta.alt || null,
+        content: r.body,
+        image: findRecipeImage(r.safeSlug),
     };
+}
+
+function updateRecipeMeta(slug, { title, altName } = {}) {
+    const r = readRecipeFile(slug);
+    if (!r) throw new Error('Recipe not found');
+
+    let body = r.body;
+    if (typeof title === 'string' && title.trim()) {
+        const newTitle = title.trim();
+        if (/^#\s+.+/m.test(body)) {
+            body = body.replace(/^#\s+.+/m, `# ${newTitle}`);
+        } else {
+            body = `# ${newTitle}\n\n${body.replace(/^\s+/, '')}`;
+        }
+    }
+
+    const meta = { ...r.meta };
+    if (typeof altName === 'string') {
+        const trimmed = altName.trim();
+        if (trimmed) meta.alt = trimmed;
+        else delete meta.alt;
+    }
+
+    const out = serializeFrontmatter(meta, body);
+    fs.writeFileSync(r.filePath, out, 'utf8');
+
+    return getRecipe(r.safeSlug);
 }
 
 /**
@@ -248,6 +312,217 @@ Begin:`
     });
 
     return message.content[0].text.trim();
+}
+
+/**
+ * Recipe cover image search.
+ * Primary source: Unsplash (high-quality food photography, requires UNSPLASH_ACCESS_KEY).
+ * Fallback source: Wikimedia Commons (free, no key required).
+ */
+const COMMONS_USER_AGENT = 'KitchenDashboard/1.0 (recipe cover regenerator)';
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
+
+
+function httpsGetBuffer(targetUrl, { headers = {}, redirects = 3 } = {}) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(targetUrl);
+        const opts = {
+            hostname: u.hostname,
+            path: u.pathname + u.search,
+            method: 'GET',
+            headers: { 'User-Agent': COMMONS_USER_AGENT, ...headers }
+        };
+        const req = https.request(opts, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+                const next = new URL(res.headers.location, targetUrl).toString();
+                resolve(httpsGetBuffer(next, { headers, redirects: redirects - 1 }));
+                return;
+            }
+            const chunks = [];
+            res.on('data', c => chunks.push(c));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+        });
+        req.on('error', reject);
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.end();
+    });
+}
+
+async function httpsGetJson(url, options = {}) {
+    const buf = await httpsGetBuffer(url, options);
+    const text = buf.toString();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        const preview = text.slice(0, 200).replace(/\s+/g, ' ').trim();
+        throw new Error(`Non-JSON response from ${new URL(url).host}: ${preview || '(empty)'}`);
+    }
+}
+
+async function findRandomUnsplashImage(searchTerm) {
+    if (!UNSPLASH_ACCESS_KEY) return null;
+
+    // Random page (1-3) lets each call sample different photos beyond the top 20.
+    const page = 1 + Math.floor(Math.random() * 3);
+    // Unsplash tags are mostly English — append "food" to bias away from
+    // unrelated meanings (e.g. "humus" the soil → dirt bikes on dirt).
+    const query = /\bfood\b|\bdish\b|\bcocktail\b|\bsauce\b|\bsoup\b|\bstew\b/i.test(searchTerm)
+        ? searchTerm
+        : `${searchTerm} food`;
+    const url = 'https://api.unsplash.com/search/photos?' + new URLSearchParams({
+        query,
+        per_page: '20',
+        page: String(page),
+        orientation: 'landscape',
+        content_filter: 'high',
+    });
+
+    const headers = { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` };
+    const data = await httpsGetJson(url, { headers });
+    const results = data.results || [];
+    if (!results.length) return null;
+
+    const pick = results[Math.floor(Math.random() * results.length)];
+
+    // Per Unsplash API guidelines, ping the download endpoint when actually using a photo.
+    if (pick.links?.download_location) {
+        httpsGetBuffer(pick.links.download_location, { headers })
+            .catch(() => { /* fire-and-forget tracking */ });
+    }
+
+    return {
+        url: pick.urls?.regular || pick.urls?.full,
+        mime: 'image/jpeg',
+        title: pick.alt_description || pick.description || pick.id,
+        photographer: pick.user?.name,
+        photographerUrl: pick.user?.links?.html,
+        source: 'unsplash',
+    };
+}
+
+// Bilingual food-context hints. Picking a random one each call biases the
+// search toward cooked dishes (vs. plants/ingredients) AND adds extra variety
+// across regenerations.
+const FOOD_HINTS = [
+    'food dish', 'cooked dish', 'plate', 'recipe', 'meal',
+    'plato', 'comida', 'cocido', 'guiso', 'receta',
+];
+
+async function searchCommons(query, offset = 0) {
+    const url = 'https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+        action: 'query',
+        list: 'search',
+        srsearch: query,
+        srnamespace: '6',
+        srlimit: '20',
+        sroffset: String(offset),
+        format: 'json',
+        origin: '*',
+    });
+    const data = await httpsGetJson(url);
+    return (data.query?.search || []).filter(r => r.title && /^File:/i.test(r.title));
+}
+
+async function resolveCommonsImage(fileTitle) {
+    const url = 'https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+        action: 'query',
+        titles: fileTitle,
+        prop: 'imageinfo',
+        iiprop: 'url|mime',
+        iiurlwidth: '1200',
+        format: 'json',
+        origin: '*',
+    });
+    const data = await httpsGetJson(url);
+    const page = Object.values(data.query?.pages || {})[0];
+    const image = page?.imageinfo?.[0];
+    if (!image) return null;
+    const resolved = image.thumburl || image.url;
+    return resolved ? { url: resolved, mime: image.mime, title: fileTitle } : null;
+}
+
+async function findRandomCommonsImage(searchTerm) {
+    // Try the food-biased query first, fall back to bare term if nothing matches.
+    const hint = FOOD_HINTS[Math.floor(Math.random() * FOOD_HINTS.length)];
+    const offset = Math.floor(Math.random() * 10);
+    const queries = [`${searchTerm} ${hint}`, searchTerm];
+
+    for (const query of queries) {
+        let candidates;
+        try {
+            candidates = await searchCommons(query, offset);
+        } catch (e) {
+            // Surface API errors instead of silently swallowing them, but keep
+            // trying the next query so a single hiccup doesn't kill the call.
+            console.warn(`Commons search failed for "${query}":`, e.message);
+            continue;
+        }
+        if (!candidates.length) continue;
+
+        const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+        for (const c of shuffled) {
+            try {
+                const resolved = await resolveCommonsImage(c.title);
+                if (resolved) return resolved;
+            } catch (e) {
+                console.warn(`Commons resolve failed for "${c.title}":`, e.message);
+            }
+        }
+    }
+    return null;
+}
+
+async function regenerateRecipeImage(slug, customSearchTerm) {
+    const r = readRecipeFile(slug);
+    if (!r) throw new Error('Recipe not found');
+    const safeSlug = r.safeSlug;
+
+    let term = (customSearchTerm || '').trim();
+    if (!term) term = r.meta.alt || r.title || safeSlug.replace(/-/g, ' ');
+
+    let image = null;
+    try {
+        image = await findRandomUnsplashImage(term);
+    } catch (e) {
+        console.warn('Unsplash search failed:', e.message);
+    }
+    if (!image) {
+        image = await findRandomCommonsImage(term);
+    }
+    if (!image) {
+        throw new Error(`No image found for "${term}"`);
+    }
+
+    const buffer = await httpsGetBuffer(image.url);
+
+    const mimeExt = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/gif': '.gif',
+    };
+    const urlExt = (image.url.match(/\.(jpe?g|png|webp|gif)(?:$|\?)/i)?.[1] || '').toLowerCase();
+    const ext = mimeExt[image.mime] || (urlExt ? '.' + (urlExt === 'jpeg' ? 'jpg' : urlExt) : '.jpg');
+
+    // Drop any existing image regardless of extension before writing the new one.
+    for (const e of RECIPE_IMAGE_EXTS) {
+        const old = path.join(RECIPES_DIR, safeSlug + e);
+        if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+
+    const newPath = path.join(RECIPES_DIR, safeSlug + ext);
+    fs.writeFileSync(newPath, buffer);
+
+    return {
+        slug: safeSlug,
+        searchTerm: term,
+        candidate: image.title,
+        sourceUrl: image.url,
+        provider: image.source || 'commons',
+        photographer: image.photographer || null,
+        photographerUrl: image.photographerUrl || null,
+        image: `/recipes/${safeSlug}${ext}`,
+    };
 }
 
 /**
@@ -412,6 +687,50 @@ async function handleAPI(req, res, pathname) {
             return;
         }
         res.end(JSON.stringify(recipe));
+        return;
+    }
+
+    // PUT /api/recipes/:slug - Update title and/or alt name
+    const updateMatch = pathname.match(/^\/api\/recipes\/([^/]+)$/);
+    if (updateMatch && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            const updated = updateRecipeMeta(updateMatch[1], {
+                title: data.title,
+                altName: data.altName,
+            });
+            res.end(JSON.stringify(updated));
+        } catch (error) {
+            console.error('Recipe update error:', error.message);
+            res.statusCode = error.message === 'Recipe not found' ? 404 : 500;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // POST /api/recipes/:slug/regenerate-image - Regenerate cover image from Wikimedia Commons
+    const regenMatch = pathname.match(/^\/api\/recipes\/([^/]+)\/regenerate-image$/);
+    if (regenMatch && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            const result = await regenerateRecipeImage(regenMatch[1], data.searchTerm);
+            console.log(`✓ Regenerated image for ${result.slug} from "${result.candidate}"`);
+            res.end(JSON.stringify({ success: true, ...result }));
+        } catch (error) {
+            console.error('Regenerate image error:', error.message);
+            res.statusCode = error.message === 'Recipe not found' ? 404 : 500;
+            res.end(JSON.stringify({ error: error.message }));
+        }
         return;
     }
 
