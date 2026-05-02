@@ -121,6 +121,14 @@
         <div class="recipes-search">
             <input type="text" id="recipes-search-input" placeholder="Search recipes..." autocomplete="off">
         </div>
+        <div class="recipes-toolbar">
+            <button class="scan-recipe-btn" id="scan-recipe-btn">
+                <span class="scan-icon">📷</span>
+                <span class="scan-label">Scan Recipe</span>
+            </button>
+        </div>
+        <input type="file" id="recipe-camera-input" accept="image/*" capture="camera" style="display:none">
+        <div id="scan-status" class="scan-status" style="display:none"></div>
         <div id="recipes-list" class="recipes-list"></div>
         <div id="recipe-detail" class="recipe-detail" style="display:none">
             <header class="screen-header">
