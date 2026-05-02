@@ -644,7 +644,15 @@ html, body {
     cursor: pointer;
 }
 
-.clear-checked-btn {
+.shopping-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.clear-checked-btn,
+.send-list-btn {
+    flex: 1;
     background: var(--surface);
     border: none;
     color: var(--text-dim);
@@ -653,11 +661,16 @@ html, body {
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    margin-top: 12px;
 }
 
-.clear-checked-btn:active {
+.clear-checked-btn:active,
+.send-list-btn:active {
     background: var(--surface-light);
+}
+
+.send-list-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 /* ===================
@@ -880,6 +893,34 @@ html, body {
 ::-webkit-scrollbar-thumb {
     background: var(--surface-light);
     border-radius: 2px;
+}
+
+/* ===================
+   Toast Notifications
+   =================== */
+.toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 40px);
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: white;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 100;
+    max-width: 90%;
+    text-align: center;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
 }
 
 /* Prevent zoom on input focus */

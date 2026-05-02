@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -10,6 +11,7 @@ require('dotenv').config();
 // Configuration
 // ===================
 const PORT = 8002;
+const PUSHBULLET_TOKEN = process.env.PUSHBULLET_TOKEN;
 
 const HA_CONFIG = {
     url: process.env.HA_URL,
@@ -380,6 +382,20 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
+    // POST /api/shopping/send - Send shopping list via Pushbullet
+    if (pathname === '/api/shopping/send' && req.method === 'POST') {
+        await sendShoppingListNotification();
+        res.end(JSON.stringify({ ok: true }));
+        return;
+    }
+
+    // POST /api/notify/food-ready - Send food-ready push notification via Pushbullet
+    if (pathname === '/api/notify/food-ready' && req.method === 'POST') {
+        const ok = await sendPushbulletNotification('cocina', 'La comida esta lista');
+        res.end(JSON.stringify({ ok }));
+        return;
+    }
+
     // GET /api/recipes - List recipes
     if (pathname === '/api/recipes' && req.method === 'GET') {
         res.end(JSON.stringify(listRecipes()));
@@ -473,6 +489,115 @@ function serveStatic(req, res, pathname) {
 }
 
 // ===================
+// Supermarket Location Monitor
+// ===================
+const DEVICE_TRACKER = 'device_tracker.google_maps_108072729064674902442';
+const LOCATION_KEYWORD = 'supermercado';
+const MONITOR_INTERVAL_MS = 60_000; // check every 60 seconds
+const NOTIFICATION_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 hours between notifications
+
+let lastNotificationTime = 0;
+let wasAtSupermarket = false;
+
+async function checkSupermarketLocation() {
+    try {
+        const state = await getHAState(DEVICE_TRACKER);
+        if (!state) return;
+
+        // Check state and attributes for "supermercado"
+        const locationFields = [
+            state.state,
+            state.attributes?.friendly_name,
+            state.attributes?.address,
+            state.attributes?.location_name,
+        ].filter(Boolean).map(s => s.toLowerCase());
+
+        const atSupermarket = locationFields.some(f => f.includes(LOCATION_KEYWORD));
+
+        if (atSupermarket && !wasAtSupermarket) {
+            const now = Date.now();
+            if (now - lastNotificationTime > NOTIFICATION_COOLDOWN_MS) {
+                await sendShoppingListNotification();
+                lastNotificationTime = now;
+            }
+        }
+
+        wasAtSupermarket = atSupermarket;
+    } catch (e) {
+        console.error('Supermarket monitor error:', e.message);
+    }
+}
+
+async function sendShoppingListNotification() {
+    const items = readShoppingList();
+    const unchecked = items.filter(i => !i.checked);
+
+    if (unchecked.length === 0) {
+        console.log('At supermarket but shopping list is empty, skipping notification');
+        return;
+    }
+
+    const message = unchecked.map(i => `- ${i.text}`).join('\n');
+    const title = `Lista de la compra (${unchecked.length} items)`;
+
+    const success = await callHAService('notify', 'pushbullet_de_mar', {
+        title,
+        message,
+    });
+
+    if (success) {
+        console.log(`Sent shopping list (${unchecked.length} items) via Pushbullet`);
+    } else {
+        console.error('Failed to send shopping list via Pushbullet');
+    }
+}
+
+async function sendPushbulletNotification(title, body) {
+    if (!PUSHBULLET_TOKEN) {
+        console.error('PUSHBULLET_TOKEN not configured');
+        return false;
+    }
+
+    return new Promise((resolve) => {
+        const payload = JSON.stringify({
+            type: 'note',
+            title,
+            body
+        });
+
+        const req = https.request({
+            hostname: 'api.pushbullet.com',
+            path: '/v2/pushes',
+            method: 'POST',
+            headers: {
+                'Access-Token': PUSHBULLET_TOKEN,
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(true);
+                    return;
+                }
+                console.error('Pushbullet request failed:', res.statusCode, data);
+                resolve(false);
+            });
+        });
+
+        req.on('error', (err) => {
+            console.error('Pushbullet request error:', err.message);
+            resolve(false);
+        });
+
+        req.write(payload);
+        req.end();
+    });
+}
+
+// ===================
 // Main Server
 // ===================
 const server = http.createServer(async (req, res) => {
@@ -498,5 +623,9 @@ server.listen(PORT, async () => {
     } else {
         console.log(`❌ Failed to connect to Home Assistant at ${HA_CONFIG.url}`);
     }
+    // Start supermarket location monitor
+    setInterval(checkSupermarketLocation, MONITOR_INTERVAL_MS);
+    checkSupermarketLocation(); // initial check
+    console.log(`Supermarket monitor active (checking every ${MONITOR_INTERVAL_MS / 1000}s, cooldown ${NOTIFICATION_COOLDOWN_MS / 3600000}h)`);
     console.log('');
 });
