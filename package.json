@@ -5,8 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "scan-recipe": "node scripts/scan-recipe.js"
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "kitchen",

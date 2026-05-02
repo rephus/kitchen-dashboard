@@ -38,45 +38,36 @@ npm run dev
 
 The server will run on port 8002 by default.
 
-## Recipe Scanner
+## Recipe Scanner 📸
 
-The recipe scanner uses Claude's Vision API to extract recipes from cookbook or magazine photos and convert them to the markdown format used by the kitchen dashboard.
+The recipe scanner uses Claude's Vision API to extract recipes from cookbook or magazine photos directly from your phone's camera.
 
 ### Prerequisites
 
 - An Anthropic API key (get one at https://console.anthropic.com/)
 - Set the `ANTHROPIC_API_KEY` environment variable in your `.env` file
 
-### Usage
+### How to Use
 
-```bash
-# Basic usage (auto-generates filename from image name)
-npm run scan-recipe <path-to-image>
+1. Open the kitchen dashboard in your mobile browser
+2. Navigate to the **Recipes** page
+3. Tap the **📷 Scan Recipe** button
+4. Your phone's camera will open
+5. Take a photo of the cookbook or magazine page
+6. Wait a few seconds while the AI processes the image
+7. The recipe appears in your list automatically! ✨
 
-# Specify custom output name
-npm run scan-recipe <path-to-image> <output-name>
-```
+### What It Does
 
-### Examples
-
-```bash
-# Scan a recipe photo
-npm run scan-recipe ~/photos/tortilla-recipe.jpg
-
-# Scan and specify output name
-npm run scan-recipe ~/photos/IMG_1234.jpg tortilla-espanola
-```
-
-This will:
-1. Analyze the image using Claude's Vision API
-2. Extract recipe name, ingredients, and instructions
-3. Format it in Spanish markdown matching the existing recipe format
-4. Save to `recipes/<name>.md`
-5. Copy the image to `recipes/<name>.<ext>`
+- Extracts recipe name, ingredients, and cooking instructions from photos
+- Formats everything in Spanish markdown matching your existing recipes
+- Auto-generates a slug from the recipe title
+- Saves both the recipe markdown (`recipes/<slug>.md`) and the source image
+- Refreshes the recipe list and opens the new recipe for you
 
 ### Recipe Format
 
-Recipes are stored as markdown files in the `recipes/` directory with the following structure:
+Recipes are stored as markdown files in the `recipes/` directory with this structure:
 
 ```markdown
 # Recipe Name
@@ -99,12 +90,10 @@ You can also add subsections like `## Sofrito`, `## Caldo`, etc. for complex rec
 ```
 kitchen-dashboard/
 ├── index.html          # Main dashboard UI
-├── app.js              # Frontend JavaScript
+├── app.js              # Frontend JavaScript (includes recipe scanner UI)
 ├── style.css           # Styling
-├── server.js           # Node.js backend
+├── server.js           # Node.js backend (includes recipe scan API)
 ├── recipes/            # Recipe markdown files and images
-├── scripts/            # Utility scripts
-│   └── scan-recipe.js  # Recipe scanner
 └── package.json
 ```
 
