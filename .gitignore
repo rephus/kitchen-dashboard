@@ -3,3 +3,10 @@ node_modules/
 .claude
 data/
 Recetas-import
+
+recipes
+
+caddy*
+Caddyfile
+
+*.log

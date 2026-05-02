@@ -105,7 +105,10 @@
 
         <div class="shopping-list" id="shopping-list"></div>
 
-        <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
+        <div class="shopping-actions-row">
+            <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
+            <button class="send-list-btn" id="send-list-btn">Send list</button>
+        </div>
         <div class="mic-status" id="mic-status"></div>
         <div class="mic-help" id="mic-help" style="display:none">
             <a href="chrome://flags/#unsafely-treat-insecure-origin-as-secure">Enable mic: open this Chrome flag</a> and add <code>http://192.168.2.20:8002</code>
@@ -131,6 +134,7 @@
         </div>
     </div>
 
+    <div id="toast" class="toast"></div>
     <script src="app.js"></script>
 </body>
 </html>

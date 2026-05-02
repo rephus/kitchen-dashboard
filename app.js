@@ -2,6 +2,21 @@
 // Kitchen UI App
 // ===================
 
+// ===================
+// Toast Notifications
+// ===================
+let toastTimer = null;
+function showToast(message, duration = 3000) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('visible');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        el.classList.remove('visible');
+        toastTimer = null;
+    }, duration);
+}
+
 const WEATHER_ICONS = {
     'sunny': '☀️', 'clear-night': '🌙',
     'partlycloudy': '⛅', 'cloudy': '☁️',
@@ -147,6 +162,7 @@ async function loadRecipesList() {
         renderRecipesList();
     } catch (e) {
         recipesListEl.innerHTML = '<p class="recipes-empty">Could not load recipes.</p>';
+        showToast('Could not load recipes');
     }
 }
 
@@ -169,6 +185,7 @@ async function openRecipe(slug) {
         recipeDetailEl.style.display = 'flex';
     } catch (e) {
         recipeDetailContentEl.innerHTML = '<p>Could not load recipe.</p>';
+        showToast('Could not load recipe');
     }
 }
 
@@ -234,7 +251,7 @@ async function fetchSensors() {
             el.className = w > 4000 ? 'power-high' : w > 2000 ? 'power-mid' : 'power-low';
         }
     } catch (e) {
-        console.error('Sensor fetch failed:', e);
+        showToast('Could not reach server');
     }
 }
 
@@ -266,33 +283,32 @@ async function sendFoodReady() {
     btn.classList.add('sending');
 
     try {
-        // notify via ntfy.sh
-        const res = await fetch('https://ntfy.sh/rephus-s25-notif-apps', {
-            method: 'POST',
-            headers: {
-                'Title': 'cocina',
-                'Message': 'La comida esta lista'
-            }
-        });
-        const data = await res.json();
-        console.log(data);
-        /*
-        // notify via home assistant 
-        const res = await fetch('/api/service/notify/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: '🍽️ Food is ready!',
-                title: 'Kitchen'
-            })
-        });*/
-        const isSuccess = data.event === 'message' 
+        const message = 'La comida esta lista';
 
+        // Send both: Pushbullet + Home Assistant → Alexa (Echo Show TTS)
+        const [pushbulletResult, alexaResult] = await Promise.all([
+            fetch('/api/notify/food-ready', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => d.ok === true)
+                .catch(() => false),
+            fetch('/api/service/notify/alexa_media', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message,
+                    data: { type: 'tts' },
+                    target: 'media_player.echo_show'
+                })
+            }).then(r => r.json()).catch(() => ({})).then(d => d.success === true)
+        ]);
+
+        const isSuccess = pushbulletResult || alexaResult;
         feedback.textContent = isSuccess ? 'Notification sent!' : 'Failed to send';
         feedback.style.color = isSuccess ? 'var(--success)' : 'var(--accent)';
     } catch (e) {
         feedback.textContent = 'Failed to send';
         feedback.style.color = 'var(--accent)';
+        showToast('Connection lost — notification not sent');
     }
 
     feedback.classList.add('visible');
@@ -509,7 +525,7 @@ async function loadShoppingList() {
         shoppingItems = await res.json();
         renderShoppingList();
     } catch (e) {
-        console.error('Failed to load shopping list:', e);
+        showToast('Could not load shopping list');
     }
 }
 
@@ -518,7 +534,9 @@ function saveShoppingList() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shoppingItems)
-    }).catch(e => console.error('Failed to save shopping list:', e));
+    }).then(res => {
+        if (!res.ok) showToast('Failed to save list');
+    }).catch(() => showToast('Connection lost — could not save'));
 }
 
 function renderShoppingList() {
@@ -595,6 +613,24 @@ document.getElementById('clear-checked').addEventListener('click', () => {
     renderShoppingList();
 });
 
+document.getElementById('send-list-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('send-list-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+        const res = await fetch('/api/shopping/send', { method: 'POST' });
+        const data = await res.json();
+        btn.textContent = data.ok ? 'Sent!' : 'Failed';
+    } catch (e) {
+        btn.textContent = 'Failed';
+        showToast('Connection lost — list not sent');
+    }
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = 'Send list';
+    }, 2000);
+});
+
 loadShoppingList();
 
 // ===================
@@ -603,6 +639,14 @@ loadShoppingList();
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let isListening = false;
+/** Pending onend → restart timer; must be cleared when user turns mic off */
+let micRestartTimer = null;
+/** Last final transcript for this mic session (fixes progressive finals: "tortilla" → "tortilla de patatas") */
+let lastVoiceFinalTranscript = '';
+
+function normalizeVoicePhrase(text) {
+    return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
 
 // Split spoken text into individual items
 // Handles: "leche, pan y huevos" -> ["leche", "pan", "huevos"]
@@ -611,6 +655,47 @@ function splitIntoItems(text) {
         .split(/,|\by\b|\be\b/i)    // split on commas, "y", "e"
         .map(s => s.trim().toLowerCase())
         .filter(s => s.length > 0);
+}
+
+/** Remove unchecked list rows whose text matches any of these parts (voice refinement undo). */
+function removeShoppingItemsMatchingParts(parts) {
+    const set = new Set(parts.map((p) => p.trim().toLowerCase()).filter(Boolean));
+    if (set.size === 0) return;
+    const before = shoppingItems.length;
+    shoppingItems = shoppingItems.filter((i) => {
+        if (i.checked) return true;
+        return !set.has(i.text.trim().toLowerCase());
+    });
+    if (shoppingItems.length !== before) {
+        saveShoppingList();
+        renderShoppingList();
+    }
+}
+
+function applyVoiceFinalTranscript(rawTranscript) {
+    const normalized = normalizeVoicePhrase(rawTranscript);
+    if (!normalized) return;
+
+    if (normalized === lastVoiceFinalTranscript) return;
+
+    // Only treat as same utterance growing if the longer text continues after space/comma
+    // (avoids "pan" then "panadero" being merged; progressive API uses "tortilla" → "tortilla de …")
+    const last = lastVoiceFinalTranscript;
+    const isRefinement =
+        last &&
+        normalized.length > last.length &&
+        (normalized.startsWith(last + ' ') || normalized.startsWith(last + ','));
+
+    if (isRefinement) {
+        const oldParts = splitIntoItems(last);
+        removeShoppingItemsMatchingParts(oldParts);
+    }
+
+    const items = splitIntoItems(normalized);
+    items.slice()
+        .reverse()
+        .forEach((item) => addShoppingItem(item));
+    lastVoiceFinalTranscript = normalized;
 }
 
 function initVoice() {
@@ -636,11 +721,8 @@ function initVoice() {
             const transcript = event.results[i][0].transcript.trim();
 
             if (event.results[i].isFinal) {
-                const items = splitIntoItems(transcript);
-                // Add items so that they appear at the top,
-                // while preserving the spoken order.
-                items.slice().reverse().forEach(item => addShoppingItem(item));
-
+                applyVoiceFinalTranscript(transcript);
+                const items = splitIntoItems(normalizeVoicePhrase(transcript));
                 if (items.length > 0) {
                     micStatus.textContent = `+ ${items.join(', ')}`;
                     micStatus.className = 'mic-status heard';
@@ -669,9 +751,21 @@ function initVoice() {
     };
 
     recognition.onend = () => {
-        if (isListening) {
-            try { recognition.start(); } catch (e) { stopListening(); }
+        if (!isListening) return;
+        if (micRestartTimer != null) {
+            clearTimeout(micRestartTimer);
+            micRestartTimer = null;
         }
+        // Defer restart; cancel via clearTimeout(micRestartTimer) when user turns mic off
+        micRestartTimer = setTimeout(() => {
+            micRestartTimer = null;
+            if (!isListening) return;
+            try {
+                recognition.start();
+            } catch (e) {
+                stopListening();
+            }
+        }, 0);
     };
 
     micBtn.addEventListener('click', () => {
@@ -685,17 +779,31 @@ function initVoice() {
 
 function startListening() {
     if (!recognition) return;
+    if (micRestartTimer != null) {
+        clearTimeout(micRestartTimer);
+        micRestartTimer = null;
+    }
     isListening = true;
+    lastVoiceFinalTranscript = '';
     document.getElementById('mic-btn').classList.add('listening');
     document.getElementById('mic-status').textContent = 'Escuchando...';
     document.getElementById('mic-status').className = 'mic-status';
-    try { recognition.start(); } catch (e) {}
+    try {
+        recognition.start();
+    } catch (e) {}
 }
 
 function stopListening() {
+    if (micRestartTimer != null) {
+        clearTimeout(micRestartTimer);
+        micRestartTimer = null;
+    }
     isListening = false;
     document.getElementById('mic-btn').classList.remove('listening');
-    try { recognition.stop(); } catch (e) {}
+    // abort() stops continuous recognition immediately; stop() can still fire onend and re-queue listening in WebKit
+    try {
+        recognition.abort();
+    } catch (e) {}
     setTimeout(() => {
         if (!isListening) document.getElementById('mic-status').textContent = '';
     }, 3000);
@@ -719,6 +827,7 @@ document.addEventListener('visibilitychange', () => {
         requestWakeLock();
         updateClock();
         fetchSensors();
+        loadShoppingList();
     }
 });
 
