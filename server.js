@@ -226,6 +226,17 @@ function getRecipe(slug) {
     };
 }
 
+function deleteRecipe(slug) {
+    const r = readRecipeFile(slug);
+    if (!r) throw new Error('Recipe not found');
+    fs.unlinkSync(r.filePath);
+    for (const ext of RECIPE_IMAGE_EXTS) {
+        const imgPath = path.join(RECIPES_DIR, r.safeSlug + ext);
+        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    }
+    return { slug: r.safeSlug };
+}
+
 function updateRecipeMeta(slug, { title, altName } = {}) {
     const r = readRecipeFile(slug);
     if (!r) throw new Error('Recipe not found');
@@ -687,6 +698,21 @@ async function handleAPI(req, res, pathname) {
             return;
         }
         res.end(JSON.stringify(recipe));
+        return;
+    }
+
+    // DELETE /api/recipes/:slug - Delete recipe markdown + image
+    const deleteMatch = pathname.match(/^\/api\/recipes\/([^/]+)$/);
+    if (deleteMatch && req.method === 'DELETE') {
+        try {
+            const result = deleteRecipe(deleteMatch[1]);
+            console.log(`✓ Deleted recipe ${result.slug}`);
+            res.end(JSON.stringify({ success: true, slug: result.slug }));
+        } catch (error) {
+            console.error('Recipe delete error:', error.message);
+            res.statusCode = error.message === 'Recipe not found' ? 404 : 500;
+            res.end(JSON.stringify({ error: error.message }));
+        }
         return;
     }
 

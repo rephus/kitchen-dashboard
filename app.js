@@ -286,9 +286,34 @@ async function saveRecipeEdit() {
     }
 }
 
+async function deleteCurrentRecipe() {
+    if (!currentRecipeSlug) return;
+    const title = currentRecipe?.title || currentRecipeSlug;
+    if (!confirm(`Delete "${title}"? This removes the markdown and image and cannot be undone.`)) return;
+    try {
+        const res = await fetch(`/api/recipes/${encodeURIComponent(currentRecipeSlug)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showToast(data.error || 'Could not delete');
+            return;
+        }
+        allRecipes = allRecipes.filter(r => r.slug !== currentRecipeSlug);
+        renderRecipesList(document.getElementById('recipes-search-input')?.value || '');
+        closeRecipeEditForm();
+        recipeDetailEl.style.display = 'none';
+        recipesListEl.style.display = '';
+        currentRecipeSlug = null;
+        currentRecipe = null;
+        showToast('Recipe deleted');
+    } catch (e) {
+        showToast('Could not delete');
+    }
+}
+
 document.getElementById('recipe-edit-btn').addEventListener('click', openRecipeEditForm);
 document.getElementById('recipe-edit-cancel').addEventListener('click', closeRecipeEditForm);
 document.getElementById('recipe-edit-save').addEventListener('click', saveRecipeEdit);
+document.getElementById('recipe-edit-delete').addEventListener('click', deleteCurrentRecipe);
 
 const recipesSearchInput = document.getElementById('recipes-search-input');
 if (recipesSearchInput) {
@@ -392,11 +417,20 @@ setInterval(updateClock, 10000);
 // Home Assistant
 // ===================
 let haConnected = false;
+// Suppress toast spam from transient blips (cert rotation, wifi hiccups). Only
+// surface "Could not reach server" after several consecutive failures, and
+// only once per outage — re-armed on the next successful fetch.
+let consecutiveFetchFailures = 0;
+let outageToastShown = false;
+const FETCH_FAILURE_TOAST_THRESHOLD = 3;
 
 async function fetchSensors() {
     try {
         const res = await fetch('/api/sensors');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
+        consecutiveFetchFailures = 0;
+        outageToastShown = false;
 
         if (data.temperature) {
             document.getElementById('temperature').textContent =
@@ -426,7 +460,11 @@ async function fetchSensors() {
             el.className = w > 4000 ? 'power-high' : w > 2000 ? 'power-mid' : 'power-low';
         }
     } catch (e) {
-        showToast('Could not reach server');
+        consecutiveFetchFailures++;
+        if (consecutiveFetchFailures >= FETCH_FAILURE_TOAST_THRESHOLD && !outageToastShown) {
+            showToast('Could not reach server');
+            outageToastShown = true;
+        }
     }
 }
 
