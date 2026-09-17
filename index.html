@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a1a2e">
     <title>Kitchen</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=print-list-20260904">
 </head>
 <body>
     <!-- Main Dashboard -->
@@ -49,6 +49,10 @@
             <button class="action-btn" id="btn-recipes">
                 <div class="btn-icon">📖</div>
                 <div class="btn-label">Recipes</div>
+            </button>
+            <button class="action-btn" id="btn-planner">
+                <div class="btn-icon">🍽</div>
+                <div class="btn-label">Weekly Plan</div>
             </button>
         </div>
 
@@ -108,11 +112,31 @@
         <div class="shopping-actions-row">
             <button class="clear-checked-btn" id="clear-checked">Clear checked</button>
             <button class="send-list-btn" id="send-list-btn">Send list</button>
+            <button class="send-list-btn" id="print-list-btn">Print list</button>
         </div>
+        <div id="print-status" class="print-status" role="status" aria-live="polite"></div>
         <div class="mic-status" id="mic-status"></div>
         <div class="mic-help" id="mic-help" style="display:none">
             <a href="chrome://flags/#unsafely-treat-insecure-origin-as-secure">Enable mic: open this Chrome flag</a> and add <code>http://192.168.2.20:8002</code>
         </div>
+    </div>
+
+    <!-- Weekly Food Planner Screen -->
+    <div id="planner-screen" class="screen">
+        <header class="screen-header">
+            <button class="back-btn" data-back="dashboard">←</button>
+            <h1>Weekly Plan</h1>
+            <button class="planner-regen-btn" id="planner-regen-btn" title="Generate another plan">⟳</button>
+        </header>
+
+        <div class="planner-summary">
+            <div>
+                <div class="section-title">Lunch + Dinner</div>
+                <p>Balanced, simple ideas from your recipes and easy plates.</p>
+            </div>
+        </div>
+
+        <div id="planner-list" class="planner-list"></div>
     </div>
 
     <!-- Recipes Screen -->
@@ -159,6 +183,6 @@
     </div>
 
     <div id="toast" class="toast"></div>
-    <script src="app.js"></script>
+    <script src="app.js?v=print-list-20260904"></script>
 </body>
 </html>

@@ -9,6 +9,20 @@ A kitchen dashboard UI for Home Assistant with recipe management, timers, and sh
 - 📸 **Recipe Scanner** - Extract recipes from cookbook photos using AI
 - ⏱️ Timer and notification support
 - 🛒 Shopping list management
+- 🧺 AI grouping into supermarket sections when sending or printing (Claude Haiku)
+- 🖨️ Print unchecked shopping items on the PT210 Bluetooth thermal printer
+
+The Shopping screen's **Print list** button uses the queued print service in
+`../funprint`, routing shopping jobs to PT210 (`86:67:7A:B1:30:97`) through the
+active `esphome-cocina` Bluetooth proxy (`192.168.2.70`). Keep it near the kitchen
+proxy, on with paper loaded and the cover closed. This printer uses standard
+ESC/POS over BLE. Printing temporarily releases only the kitchen ESPHome
+integration from Home Assistant, restoring and verifying it afterward. Spanish
+accents and wrapping use the existing 384-dot bitmap renderer; printing does not
+remove or check off shopping items. Generic text/image/QR printing still defaults
+to the old Fun Print printer and is available at `POST /api/print`
+with bearer authentication and an `Idempotency-Key` header. Progress is at
+`GET /api/print/jobs/{id}`. See `../funprint/API.md` for setup and examples.
 
 ## Setup
 

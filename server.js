@@ -6,6 +6,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 // Load .env
 require('dotenv').config();
+const { handlePrinterAPI } = require('./printer-api');
+const { groupShoppingItems, formatGroupedShoppingList } = require('./shopping-grouper');
 
 // ===================
 // Configuration
@@ -584,6 +586,10 @@ function saveScannedRecipe(markdown, base64Image, mediaType) {
 // ===================
 async function handleAPI(req, res, pathname) {
     res.setHeader('Content-Type', 'application/json');
+    if (await handlePrinterAPI(req, res, pathname, readShoppingList, async items => {
+        const groups = await groupShoppingItems(items, anthropic);
+        return formatGroupedShoppingList(groups, { checkbox: true });
+    })) return;
 
     // GET /api/status
     if (pathname === '/api/status') {
@@ -829,6 +835,9 @@ function serveStatic(req, res, pathname) {
         }
 
         res.setHeader('Content-Type', contentType);
+        if (['.html', '.js', '.css'].includes(ext)) {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
         res.end(data);
     });
 }
@@ -882,7 +891,8 @@ async function sendShoppingListNotification() {
         return;
     }
 
-    const message = unchecked.map(i => `- ${i.text}`).join('\n');
+    const groups = await groupShoppingItems(unchecked.map(i => i.text), anthropic);
+    const message = formatGroupedShoppingList(groups, { title: false });
     const title = `Lista de la compra (${unchecked.length} items)`;
 
     const success = await callHAService('notify', 'pushbullet_de_mar', {

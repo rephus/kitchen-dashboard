@@ -2,6 +2,10 @@ node_modules/
 .env
 .claude
 data/
+!data/
+data/*
+!data/planner-recipe-meta.json
+!data/simple-plates.json
 Recetas-import
 
 recipes

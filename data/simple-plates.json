@@ -1,0 +1,233 @@
+[
+  {
+    "title": "Chicken breast, rice and tomato salad",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Simple plate",
+    "ingredients": ["chicken breast", "rice", "tomato", "olive oil"]
+  },
+  {
+    "title": "Turkey burgers, couscous and cucumber",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["turkey burger", "couscous", "cucumber", "yogurt"]
+  },
+  {
+    "title": "Pasta with tomato, tuna and olives",
+    "meal": "lunch",
+    "group": "fish",
+    "note": "Pantry plate",
+    "ingredients": ["pasta", "tomato sauce", "tuna", "olives"]
+  },
+  {
+    "title": "Rice bowl with egg, peas and carrots",
+    "meal": "lunch",
+    "group": "egg",
+    "note": "Simple plate",
+    "ingredients": ["rice", "egg", "peas", "carrots"]
+  },
+  {
+    "title": "Salmon, potatoes and green beans",
+    "meal": "lunch",
+    "group": "fish",
+    "note": "Balanced plate",
+    "ingredients": ["salmon", "potatoes", "green beans", "lemon"]
+  },
+  {
+    "title": "Chickpea salad with tomato, egg and tuna",
+    "meal": "lunch",
+    "group": "legume",
+    "note": "No-fuss plate",
+    "ingredients": ["chickpeas", "tomato", "egg", "tuna"]
+  },
+  {
+    "title": "Beef strips, peppers and rice",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Simple plate",
+    "ingredients": ["beef strips", "peppers", "rice", "olive oil"]
+  },
+  {
+    "title": "Lentil salad with feta and cucumber",
+    "meal": "lunch",
+    "group": "legume",
+    "note": "Balanced plate",
+    "ingredients": ["lentils", "feta", "cucumber", "tomato"]
+  },
+  {
+    "title": "Chicken noodles with peas",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["chicken", "noodles", "peas", "carrots"]
+  },
+  {
+    "title": "Potato omelette with tomato salad",
+    "meal": "lunch",
+    "group": "egg",
+    "note": "Simple plate",
+    "ingredients": ["eggs", "potatoes", "tomato", "lettuce"]
+  },
+  {
+    "title": "Meatballs with pasta and peas",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["meatballs", "pasta", "peas", "tomato sauce"]
+  },
+  {
+    "title": "White fish, sweet potato and broccoli",
+    "meal": "lunch",
+    "group": "fish",
+    "note": "Balanced plate",
+    "ingredients": ["white fish", "sweet potato", "broccoli", "olive oil"]
+  },
+  {
+    "title": "Vegetable rice with egg and peas",
+    "meal": "lunch",
+    "group": "veg",
+    "note": "Kid friendly",
+    "ingredients": ["rice", "egg", "peas", "carrots"]
+  },
+  {
+    "title": "Pesto pasta with mozzarella and tomatoes",
+    "meal": "lunch",
+    "group": "grain",
+    "note": "No-fuss plate",
+    "ingredients": ["pasta", "pesto", "mozzarella", "tomatoes"]
+  },
+  {
+    "title": "Bean, rice and avocado bowl",
+    "meal": "lunch",
+    "group": "legume",
+    "note": "No-fuss plate",
+    "ingredients": ["beans", "rice", "avocado", "corn"]
+  },
+  {
+    "title": "Couscous with chicken and roasted vegetables",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Balanced plate",
+    "ingredients": ["couscous", "chicken", "zucchini", "carrot"]
+  },
+  {
+    "title": "Macaroni with ham, peas and cheese",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["macaroni", "ham", "peas", "cheese"]
+  },
+  {
+    "title": "Omelette with salad and bread",
+    "meal": "dinner",
+    "group": "egg",
+    "note": "Quick dinner",
+    "ingredients": ["eggs", "lettuce", "tomato", "bread"]
+  },
+  {
+    "title": "Toast with tuna, tomato and avocado",
+    "meal": "dinner",
+    "group": "fish",
+    "note": "Quick dinner",
+    "ingredients": ["bread", "tuna", "tomato", "avocado"]
+  },
+  {
+    "title": "Greek yogurt bowl with fruit and nuts",
+    "meal": "dinner",
+    "group": "light",
+    "note": "Very light",
+    "ingredients": ["Greek yogurt", "banana", "berries", "nuts"]
+  },
+  {
+    "title": "Hummus toast with cucumber and boiled egg",
+    "meal": "dinner",
+    "group": "legume",
+    "note": "Quick dinner",
+    "ingredients": ["bread", "hummus", "cucumber", "egg"]
+  },
+  {
+    "title": "Vegetable soup with grilled cheese toast",
+    "meal": "dinner",
+    "group": "veg",
+    "note": "Simple dinner",
+    "ingredients": ["vegetable soup", "bread", "cheese", "apple"]
+  },
+  {
+    "title": "Chicken salad wrap",
+    "meal": "dinner",
+    "group": "meat",
+    "note": "Quick dinner",
+    "ingredients": ["wrap", "chicken", "lettuce", "yogurt sauce"]
+  },
+  {
+    "title": "Tomato mozzarella toast with side salad",
+    "meal": "dinner",
+    "group": "veg",
+    "note": "Quick dinner",
+    "ingredients": ["bread", "mozzarella", "tomato", "lettuce"]
+  },
+  {
+    "title": "Scrambled eggs with mushrooms and toast",
+    "meal": "dinner",
+    "group": "egg",
+    "note": "Quick dinner",
+    "ingredients": ["eggs", "mushrooms", "bread", "fruit"]
+  },
+  {
+    "title": "Quesadilla with cheese, chicken and corn",
+    "meal": "dinner",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["tortilla", "cheese", "chicken", "corn"]
+  },
+  {
+    "title": "Mini pizzas with tomato, cheese and ham",
+    "meal": "dinner",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["bread", "tomato sauce", "cheese", "ham"]
+  },
+  {
+    "title": "Fish fingers with peas and potato wedges",
+    "meal": "dinner",
+    "group": "fish",
+    "note": "Kid friendly",
+    "ingredients": ["fish fingers", "peas", "potatoes", "lemon"]
+  },
+  {
+    "title": "Avocado egg toast with cherry tomatoes",
+    "meal": "dinner",
+    "group": "egg",
+    "note": "Quick dinner",
+    "ingredients": ["bread", "avocado", "egg", "cherry tomatoes"]
+  },
+  {
+    "title": "Bean and cheese tortilla with tomato salad",
+    "meal": "dinner",
+    "group": "legume",
+    "note": "Simple dinner",
+    "ingredients": ["tortilla", "beans", "cheese", "tomato"]
+  },
+  {
+    "title": "Turkey and cheese sandwich with carrot sticks",
+    "meal": "dinner",
+    "group": "meat",
+    "note": "Kid friendly",
+    "ingredients": ["bread", "turkey", "cheese", "carrots"]
+  },
+  {
+    "title": "Pasta salad with egg, corn and tomato",
+    "meal": "dinner",
+    "group": "egg",
+    "note": "No-fuss plate",
+    "ingredients": ["pasta", "egg", "corn", "tomato"]
+  },
+  {
+    "title": "Cottage cheese bowl with crackers and fruit",
+    "meal": "dinner",
+    "group": "light",
+    "note": "Very light",
+    "ingredients": ["cottage cheese", "crackers", "apple", "cucumber"]
+  }
+]

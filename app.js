@@ -49,6 +49,208 @@ document.getElementById('btn-recipes').addEventListener('click', () => {
     navigate('recipes-screen');
     loadRecipesList();
 });
+document.getElementById('btn-planner').addEventListener('click', () => {
+    navigate('planner-screen');
+    loadWeeklyPlanner();
+});
+
+// ===================
+// Weekly Food Planner
+// ===================
+const plannerListEl = document.getElementById('planner-list');
+const PLANNER_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const PLANNER_SOURCE_PATTERN = {
+    lunch: ['recipe', 'recipe', 'simple', 'recipe', 'recipe', 'simple', 'recipe'],
+    dinner: ['simple', 'recipe', 'recipe', 'simple', 'recipe', 'simple', 'recipe'],
+};
+let plannerMealPool = { lunch: [], dinner: [] };
+let plannerRecipeMeta = {};
+let plannerSimplePlates = [];
+let plannerConfigLoaded = false;
+let weeklyPlan = [];
+let plannerSeed = 0;
+
+function makeSimpleMeal(item, idx) {
+    return {
+        id: `simple-${idx}-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        title: item.title,
+        meal: item.meal,
+        group: item.group,
+        note: item.note,
+        ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
+        source: 'simple',
+    };
+}
+
+function makeRecipePlannerMeal(recipe, meta) {
+    return {
+        id: `recipe-${recipe.slug}`,
+        title: recipe.title,
+        meal: meta.meal,
+        group: meta.group,
+        note: meta.note,
+        ingredients: [],
+        source: 'recipe',
+        slug: recipe.slug,
+    };
+}
+
+async function loadPlannerConfig() {
+    if (plannerConfigLoaded) return;
+    const [metaRes, simpleRes] = await Promise.all([
+        fetch('/data/planner-recipe-meta.json'),
+        fetch('/data/simple-plates.json'),
+    ]);
+    if (!metaRes.ok || !simpleRes.ok) throw new Error('Could not load planner data');
+    plannerRecipeMeta = await metaRes.json();
+    plannerSimplePlates = await simpleRes.json();
+    plannerConfigLoaded = true;
+}
+
+function rotateArray(items, count) {
+    if (!items.length) return [];
+    const offset = ((count % items.length) + items.length) % items.length;
+    return items.slice(offset).concat(items.slice(0, offset));
+}
+
+function buildPlannerMealPool() {
+    const recipeMeals = allRecipes
+        .filter(r => plannerRecipeMeta[r.slug])
+        .map(r => makeRecipePlannerMeal(r, plannerRecipeMeta[r.slug]));
+    const simpleMeals = plannerSimplePlates.map(makeSimpleMeal);
+    const meals = recipeMeals.concat(simpleMeals);
+
+    plannerMealPool = {
+        lunch: meals.filter(m => m.meal === 'lunch'),
+        dinner: meals.filter(m => m.meal === 'dinner'),
+    };
+}
+
+function pickPlannerMeal(pool, usedIds, preferredGroups, fallbackIndex, preferredSource = 'recipe') {
+    const available = pool.filter(m => !usedIds.has(m.id));
+    const source = available.length ? available : pool;
+    const preferred = source.filter(m => preferredGroups.includes(m.group));
+    const sourceMatched = preferred.filter(m => m.source === preferredSource);
+    const choices = sourceMatched.length ? sourceMatched : (preferred.length ? preferred : source);
+    const meal = choices[fallbackIndex % choices.length];
+    usedIds.add(meal.id);
+    return meal;
+}
+
+function generateWeeklyPlan(seed = 0) {
+    buildPlannerMealPool();
+
+    const lunches = rotateArray(plannerMealPool.lunch, seed);
+    const dinners = rotateArray(plannerMealPool.dinner, seed * 2);
+    const usedLunches = new Set();
+    const usedDinners = new Set();
+    const lunchPattern = [
+        ['legume', 'fish'],
+        ['meat', 'egg'],
+        ['grain', 'veg'],
+        ['fish', 'legume'],
+        ['meat', 'grain'],
+        ['legume', 'veg'],
+        ['fish', 'meat'],
+    ];
+    const dinnerPattern = [
+        ['veg', 'salad'],
+        ['egg', 'light'],
+        ['fish', 'veg'],
+        ['legume', 'salad'],
+        ['veg', 'egg'],
+        ['meat', 'fish'],
+        ['light', 'veg'],
+    ];
+
+    weeklyPlan = PLANNER_DAYS.map((day, index) => ({
+        day,
+        rotation: seed + index,
+        lunch: pickPlannerMeal(lunches, usedLunches, lunchPattern[index], seed + index, PLANNER_SOURCE_PATTERN.lunch[index]),
+        dinner: pickPlannerMeal(dinners, usedDinners, dinnerPattern[index], seed + index, PLANNER_SOURCE_PATTERN.dinner[index]),
+    }));
+}
+
+function rotatePlannerDay(dayIndex) {
+    const day = weeklyPlan[dayIndex];
+    if (!day) return;
+    day.rotation += 1;
+
+    const otherLunches = new Set(weeklyPlan.filter((_, i) => i !== dayIndex).map(d => d.lunch.id));
+    const otherDinners = new Set(weeklyPlan.filter((_, i) => i !== dayIndex).map(d => d.dinner.id));
+    otherLunches.add(day.lunch.id);
+    otherDinners.add(day.dinner.id);
+    day.lunch = pickPlannerMeal(plannerMealPool.lunch, otherLunches, ['legume', 'fish', 'meat', 'grain', 'egg'], day.rotation, PLANNER_SOURCE_PATTERN.lunch[dayIndex]);
+    day.dinner = pickPlannerMeal(plannerMealPool.dinner, otherDinners, ['veg', 'egg', 'fish', 'legume', 'light', 'salad'], day.rotation, PLANNER_SOURCE_PATTERN.dinner[dayIndex]);
+    renderWeeklyPlanner();
+}
+
+function renderPlannerMeal(meal, mealName) {
+    const title = escapeHtml(meal.title);
+    const detail = meal.ingredients.length ? meal.ingredients.join(' + ') : (meal.note || '');
+    const note = escapeHtml(detail);
+    const badge = meal.source === 'recipe' ? 'Recipe' : 'Simple';
+    const titleHtml = meal.slug
+        ? `<a class="planner-meal-link" href="/?recipe=${encodeURIComponent(meal.slug)}" target="_blank" rel="noopener">${title}</a>`
+        : `<div class="planner-meal-title">${title}</div>`;
+    return `
+        <div class="planner-meal">
+            <div class="planner-meal-top">
+                <span>${mealName}</span>
+                <span class="planner-source">${badge}</span>
+            </div>
+            ${titleHtml}
+            <div class="planner-note">${note}</div>
+        </div>
+    `;
+}
+
+function renderWeeklyPlanner() {
+    if (!plannerListEl) return;
+    if (!weeklyPlan.length) {
+        plannerListEl.innerHTML = '<p class="recipes-empty">Could not build a plan yet.</p>';
+        return;
+    }
+
+    plannerListEl.innerHTML = weeklyPlan.map((day, index) => `
+        <section class="planner-day">
+            <div class="planner-day-header">
+                <h2>${day.day}</h2>
+                <button class="planner-rotate-day" data-day-index="${index}" title="Rotate this day">⟳</button>
+            </div>
+            <div class="planner-meals">
+                ${renderPlannerMeal(day.lunch, 'Lunch')}
+                ${renderPlannerMeal(day.dinner, 'Dinner')}
+            </div>
+        </section>
+    `).join('');
+
+    plannerListEl.querySelectorAll('.planner-rotate-day').forEach(btn => {
+        btn.addEventListener('click', () => rotatePlannerDay(Number(btn.dataset.dayIndex)));
+    });
+}
+
+async function loadWeeklyPlanner() {
+    plannerListEl.innerHTML = '<p class="recipes-empty">Building this week...</p>';
+    try {
+        await loadPlannerConfig();
+        if (!allRecipes.length) {
+            const res = await fetch('/api/recipes');
+            allRecipes = await res.json();
+        }
+        generateWeeklyPlan(plannerSeed);
+        renderWeeklyPlanner();
+    } catch (e) {
+        plannerListEl.innerHTML = '<p class="recipes-empty">Could not load planner data.</p>';
+        showToast('Could not load planner data');
+    }
+}
+
+document.getElementById('planner-regen-btn').addEventListener('click', () => {
+    plannerSeed += 1;
+    generateWeeklyPlan(plannerSeed);
+    renderWeeklyPlanner();
+});
 
 // ===================
 // Recipes
@@ -321,6 +523,17 @@ if (recipesSearchInput) {
         renderRecipesList(e.target.value || '');
     });
 }
+
+async function openInitialRecipeFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('recipe');
+    if (!slug) return;
+    navigate('recipes-screen');
+    await loadRecipesList();
+    openRecipe(slug);
+}
+
+openInitialRecipeFromQuery();
 
 // ===================
 // Recipe Scanner (Camera)
@@ -843,6 +1056,79 @@ document.getElementById('send-list-btn').addEventListener('click', async () => {
         btn.textContent = 'Send list';
     }, 2000);
 });
+
+// Keep the request ID across lost responses/reloads so a retry cannot print twice.
+let pendingPrint = null;
+try { pendingPrint = JSON.parse(localStorage.getItem('shopping-print-job') || 'null'); } catch {}
+let printPolling = false;
+const printButton = document.getElementById('print-list-btn');
+const printStatus = document.getElementById('print-status');
+
+function rememberPrint() {
+    try {
+        if (pendingPrint) localStorage.setItem('shopping-print-job', JSON.stringify(pendingPrint));
+        else localStorage.removeItem('shopping-print-job');
+    } catch {}
+}
+
+async function followPrint() {
+    if (printPolling || !pendingPrint) return;
+    printPolling = true;
+    printButton.disabled = true;
+    printButton.textContent = 'Printing…';
+    try {
+        if (!pendingPrint.id) {
+            const response = await fetch('/api/shopping/print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Idempotency-Key': pendingPrint.key },
+                body: JSON.stringify({ items: pendingPrint.items })
+            });
+            const job = await response.json();
+            if (!response.ok) {
+                // A validation/full-queue rejection did not create a job.
+                if ([400, 403, 413, 415, 429].includes(response.status)) {
+                    pendingPrint = null;
+                    rememberPrint();
+                }
+                throw new Error(job.error || 'Could not submit print');
+            }
+            pendingPrint.id = job.id;
+            rememberPrint();
+        }
+        for (;;) {
+            const response = await fetch('/api/shopping/print/' + pendingPrint.id);
+            const job = await response.json();
+            if (!response.ok) throw new Error(job.error || 'Could not check print status');
+            printStatus.textContent = job.message;
+            if (['succeeded', 'failed', 'unknown'].includes(job.state)) {
+                if (job.state === 'succeeded') showToast('Shopping list printed');
+                pendingPrint = null;
+                rememberPrint();
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    } catch (error) {
+        printStatus.textContent = error.message + (pendingPrint ? ' Tap to check again; this will not print a second copy.' : '');
+    } finally {
+        printPolling = false;
+        printButton.disabled = false;
+        printButton.textContent = pendingPrint ? 'Check print' : 'Print list';
+    }
+}
+
+printButton.addEventListener('click', () => {
+    if (!pendingPrint) {
+        const items = shoppingItems.filter(item => !item.checked).map(item => item.text);
+        if (!items.length) { showToast('No unchecked items to print'); return; }
+        const key = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+        pendingPrint = { key, items };
+        rememberPrint();
+        printStatus.textContent = 'Sending shopping list to printer…';
+    }
+    followPrint();
+});
+if (pendingPrint) followPrint();
 
 loadShoppingList();
 
