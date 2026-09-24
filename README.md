@@ -9,6 +9,8 @@ A kitchen dashboard UI for Home Assistant with recipe management, timers, and sh
 - 📸 **Recipe Scanner** - Extract recipes from cookbook photos using AI
 - ⏱️ Timer and notification support
 - 🛒 Shopping list management
+- 🍽️ Next-week meal selection with main-course suggestions, quick meals, persistent recipe ideas that generate reviewable recipe records, extra lists, separately managed recurring items, and an order-ready scheduler flag
+- 🔔 Pushbullet completion notice with a PDF basket report, missing-item summary, and idempotent retry protection
 - 🧺 AI grouping into supermarket sections when sending or printing (Claude Haiku)
 - 🖨️ Print unchecked shopping items on the PT210 Bluetooth thermal printer
 

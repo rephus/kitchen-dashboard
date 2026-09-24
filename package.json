@@ -4,8 +4,9 @@
   "description": "Kitchen dashboard UI for Home Assistant",
   "main": "server.js",
   "scripts": {
-    "test": "node --test printer-api.test.js shopping-grouper.test.js",
+    "test": "node --test printer-api.test.js shopping-grouper.test.js weekly-plan.test.js order-ready.test.js",
     "test:printer": "node --test printer-api.test.js",
+    "notify:order-ready": "node scripts/notify-order-ready.js",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
-    "dotenv": "^17.3.1"
+    "dotenv": "^17.3.1",
+    "pdfkit": "^0.15.2"
   }
 }

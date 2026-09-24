@@ -8,6 +8,11 @@ const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 const { handlePrinterAPI } = require('./printer-api');
 const { groupShoppingItems, formatGroupedShoppingList } = require('./shopping-grouper');
+const {
+    extractRecipeIngredients,
+    buildPlanShoppingItems,
+    reconcilePlanShoppingItems,
+} = require('./weekly-plan');
 
 // ===================
 // Configuration
@@ -122,6 +127,10 @@ async function checkHAConnection() {
 // Shopping List (JSON file storage)
 // ===================
 const SHOPPING_FILE = path.join(__dirname, 'data', 'shopping.json');
+const WEEKLY_PLAN_FILE = path.join(__dirname, 'data', 'weekly-plan.json');
+const SIMPLE_PLATES_FILE = path.join(__dirname, 'data', 'simple-plates.json');
+const CUSTOM_QUICK_MEALS_FILE = path.join(__dirname, 'data', 'quick-meals.json');
+const RECURRING_ITEMS_FILE = path.join(__dirname, 'data', 'recurring-items.json');
 
 function ensureDataDir() {
     const dir = path.dirname(SHOPPING_FILE);
@@ -142,11 +151,331 @@ function writeShoppingList(items) {
     fs.writeFileSync(SHOPPING_FILE, JSON.stringify(items, null, 2));
 }
 
+function quickMealSlug(title) {
+    return String(title || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'meal';
+}
+
+function readCustomQuickMeals() {
+    try {
+        const items = JSON.parse(fs.readFileSync(CUSTOM_QUICK_MEALS_FILE, 'utf8'));
+        return Array.isArray(items) ? items : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function listQuickMeals() {
+    let basic = [];
+    try {
+        const items = JSON.parse(fs.readFileSync(SIMPLE_PLATES_FILE, 'utf8'));
+        basic = Array.isArray(items) ? items.map((item, index) => ({
+            id: `basic-${index + 1}-${quickMealSlug(item.title)}`,
+            title: item.title,
+            ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
+            note: item.note || 'Basic quick meal',
+            builtIn: true,
+        })) : [];
+    } catch (e) { /* return custom meals only */ }
+    return basic.concat(readCustomQuickMeals());
+}
+
+function createQuickMeal({ title, ingredients } = {}) {
+    const cleanTitle = String(title || '').trim();
+    const cleanIngredients = [...new Set(
+        (Array.isArray(ingredients) ? ingredients : [])
+            .map(item => String(item).trim())
+            .filter(Boolean),
+    )];
+    if (!cleanTitle || cleanIngredients.length === 0) {
+        const error = new Error('Add a meal name and at least one ingredient');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const existingIds = new Set(listQuickMeals().map(item => item.id));
+    const baseId = `custom-${quickMealSlug(cleanTitle)}`;
+    let id = baseId;
+    let suffix = 2;
+    while (existingIds.has(id)) id = `${baseId}-${suffix++}`;
+
+    const meal = {
+        id,
+        title: cleanTitle,
+        ingredients: cleanIngredients,
+        note: 'Custom quick meal',
+        builtIn: false,
+        createdAt: new Date().toISOString(),
+    };
+    const customMeals = readCustomQuickMeals();
+    customMeals.push(meal);
+    fs.writeFileSync(CUSTOM_QUICK_MEALS_FILE, JSON.stringify(customMeals, null, 2));
+    return meal;
+}
+
+function emptyWeeklyPlan() {
+    return {
+        version: 1,
+        period: 'next-week',
+        selectedRecipes: [],
+        selectedQuickMeals: [],
+        requests: [],
+        orderReady: false,
+        updatedAt: null,
+    };
+}
+
+function readWeeklyPlan() {
+    ensureDataDir();
+    try {
+        const data = JSON.parse(fs.readFileSync(WEEKLY_PLAN_FILE, 'utf8'));
+        return {
+            ...emptyWeeklyPlan(),
+            ...data,
+            selectedRecipes: Array.isArray(data.selectedRecipes) ? data.selectedRecipes : [],
+            selectedQuickMeals: Array.isArray(data.selectedQuickMeals) ? data.selectedQuickMeals : [],
+            requests: Array.isArray(data.requests) ? data.requests : [],
+            orderReady: data.orderReady === true,
+        };
+    } catch (e) {
+        return emptyWeeklyPlan();
+    }
+}
+
+function createPlannerId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function defaultRecurringItems() {
+    return [{
+        id: 'water-8l',
+        text: 'Garrafa de agua 8 L',
+        quantity: 2,
+        active: true,
+    }];
+}
+
+function readRecurringItems() {
+    ensureDataDir();
+    try {
+        const items = JSON.parse(fs.readFileSync(RECURRING_ITEMS_FILE, 'utf8'));
+        return Array.isArray(items) ? items : [];
+    } catch (error) {
+        const items = defaultRecurringItems();
+        fs.writeFileSync(RECURRING_ITEMS_FILE, JSON.stringify(items, null, 2));
+        return items;
+    }
+}
+
+function normalizeRecurringItems(items) {
+    if (!Array.isArray(items) || items.length > 100) {
+        const error = new Error('Recurring items must be an array with at most 100 entries');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return items.map(item => {
+        const text = String(item?.text || '').trim();
+        const quantity = Number(item?.quantity);
+        if (!text || text.length > 160 || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+            const error = new Error('Each recurring item needs a name and a quantity between 1 and 99');
+            error.statusCode = 400;
+            throw error;
+        }
+        return {
+            id: String(item.id || createPlannerId('recurring')).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80),
+            text,
+            quantity,
+            active: item.active !== false,
+        };
+    });
+}
+
+function writeWeeklyPlanFile(plan) {
+    ensureDataDir();
+    fs.writeFileSync(WEEKLY_PLAN_FILE, JSON.stringify(plan, null, 2));
+}
+
+function saveRecurringItems(items) {
+    const normalized = normalizeRecurringItems(items);
+    ensureDataDir();
+    fs.writeFileSync(RECURRING_ITEMS_FILE, JSON.stringify(normalized, null, 2));
+
+    const plan = readWeeklyPlan();
+    writeWeeklyPlanFile({
+        ...plan,
+        orderReady: false,
+        updatedAt: new Date().toISOString(),
+    });
+    return normalized;
+}
+
+function addWeeklyPlanRequest({ type, text } = {}) {
+    const allowedTypes = new Set(['recipe-idea', 'extra-list']);
+    const cleanText = String(text || '').trim();
+    if (!allowedTypes.has(type) || !cleanText || cleanText.length > 2000) {
+        const error = new Error('Choose a valid type and enter up to 2000 characters');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const plan = readWeeklyPlan();
+    if (plan.requests.length >= 50) {
+        const error = new Error('The weekly plan can hold at most 50 ideas and extra lists');
+        error.statusCode = 400;
+        throw error;
+    }
+    const request = {
+        id: createPlannerId('request'),
+        type,
+        text: cleanText,
+        createdAt: new Date().toISOString(),
+        status: type === 'recipe-idea' ? 'pending' : 'saved',
+    };
+    plan.requests.push(request);
+    plan.orderReady = false;
+    plan.updatedAt = new Date().toISOString();
+    writeWeeklyPlanFile(plan);
+    return request;
+}
+
+function removeWeeklyPlanRequest(id) {
+    const plan = readWeeklyPlan();
+    const requests = plan.requests.filter(request => request.id !== id);
+    if (requests.length === plan.requests.length) {
+        const error = new Error('Idea or extra list not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    plan.requests = requests;
+    plan.orderReady = false;
+    plan.updatedAt = new Date().toISOString();
+    writeWeeklyPlanFile(plan);
+    return expandWeeklyPlan(plan);
+}
+
+function expandWeeklyPlan(plan) {
+    const selectedRecipes = plan.selectedRecipes.map(slug => {
+        const recipe = getRecipe(slug);
+        if (!recipe) return null;
+        return {
+            type: 'recipe',
+            id: recipe.slug,
+            slug: recipe.slug,
+            title: recipe.title,
+            category: recipe.category,
+            image: recipe.image,
+            ingredients: extractRecipeIngredients(recipe.content),
+        };
+    }).filter(Boolean);
+    const quickMeals = new Map(listQuickMeals().map(meal => [meal.id, meal]));
+    const selectedQuickMeals = plan.selectedQuickMeals.map(id => {
+        const meal = quickMeals.get(id);
+        return meal ? { ...meal, type: 'quick' } : null;
+    }).filter(Boolean);
+    const selected = selectedRecipes.concat(selectedQuickMeals);
+
+    return {
+        ...plan,
+        selected,
+        ingredientCount: buildPlanShoppingItems(selected).length,
+        recurringItems: readRecurringItems().filter(item => item.active),
+    };
+}
+
+function saveWeeklyPlan(data) {
+    if (!Array.isArray(data.selectedRecipes)) {
+        const error = new Error('selectedRecipes must be an array');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const previous = readWeeklyPlan();
+    const selectedRecipes = [...new Set(data.selectedRecipes.map(String))];
+    const selectedQuickMeals = data.selectedQuickMeals === undefined
+        ? previous.selectedQuickMeals
+        : [...new Set((Array.isArray(data.selectedQuickMeals) ? data.selectedQuickMeals : []).map(String))];
+    if (selectedRecipes.length + selectedQuickMeals.length > 21) {
+        const error = new Error('Choose at most 21 recipes');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const selectedRecipeDetails = selectedRecipes.map(slug => {
+        const recipe = getRecipe(slug);
+        if (!recipe) {
+            const error = new Error(`Recipe not found: ${slug}`);
+            error.statusCode = 400;
+            throw error;
+        }
+        return {
+            type: 'recipe',
+            id: recipe.slug,
+            slug: recipe.slug,
+            title: recipe.title,
+            category: recipe.category,
+            image: recipe.image,
+            ingredients: extractRecipeIngredients(recipe.content),
+        };
+    });
+    const quickMeals = new Map(listQuickMeals().map(meal => [meal.id, meal]));
+    const selectedQuickMealDetails = selectedQuickMeals.map(id => {
+        const meal = quickMeals.get(id);
+        if (!meal) {
+            const error = new Error(`Quick meal not found: ${id}`);
+            error.statusCode = 400;
+            throw error;
+        }
+        return { ...meal, type: 'quick' };
+    });
+    const selected = selectedRecipeDetails.concat(selectedQuickMealDetails);
+
+    const selectionChanged = JSON.stringify(previous.selectedRecipes) !== JSON.stringify(selectedRecipes)
+        || JSON.stringify(previous.selectedQuickMeals) !== JSON.stringify(selectedQuickMeals);
+    const orderReady = selectionChanged ? false : data.orderReady === true;
+    const hasOrderContent = selected.length > 0
+        || previous.requests.length > 0
+        || readRecurringItems().some(item => item.active);
+    if (orderReady && !hasOrderContent) {
+        const error = new Error('Add at least one meal, weekly request, or recurring item before marking the order ready');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const plan = {
+        ...previous,
+        version: 1,
+        period: 'next-week',
+        selectedRecipes,
+        selectedQuickMeals,
+        requests: previous.requests,
+        orderReady,
+        updatedAt: new Date().toISOString(),
+    };
+    const planItems = buildPlanShoppingItems(selected);
+    writeShoppingList(reconcilePlanShoppingItems(readShoppingList(), planItems));
+    writeWeeklyPlanFile(plan);
+
+    return expandWeeklyPlan(plan);
+}
+
 // ===================
 // Recipes (markdown files in recipes/)
 // ===================
 const RECIPES_DIR = path.join(__dirname, 'recipes');
 const RECIPE_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
+const RECIPE_CATEGORIES = require('./recipe-categories.json');
+
+function getRecipeCategory(meta) {
+    return RECIPE_CATEGORIES.some(c => c.id === meta.category) ? meta.category : 'uncategorized';
+}
+
+function isGeneratedRecipe(meta) {
+    return meta.generated === 'true' || meta.source === 'weekly-idea';
+}
 
 function findRecipeImage(slug) {
     for (const ext of RECIPE_IMAGE_EXTS) {
@@ -203,15 +532,19 @@ function listRecipes() {
             const slug = f.replace(/\.md$/, '');
             let title = slug.replace(/-/g, ' ');
             let altName = null;
+            let category = 'uncategorized';
+            let generated = false;
             try {
                 const r = readRecipeFile(slug);
                 if (r) {
                     title = r.title;
                     altName = r.meta.alt || null;
+                    category = getRecipeCategory(r.meta);
+                    generated = isGeneratedRecipe(r.meta);
                 }
             } catch (e) { /* use slug as title */ }
             const image = findRecipeImage(slug);
-            return { slug, title, altName, image };
+            return { slug, title, altName, image, category, generated };
         });
     return files.sort((a, b) => a.title.localeCompare(b.title));
 }
@@ -223,9 +556,134 @@ function getRecipe(slug) {
         slug: r.safeSlug,
         title: r.title,
         altName: r.meta.alt || null,
+        category: getRecipeCategory(r.meta),
         content: r.body,
         image: findRecipeImage(r.safeSlug),
+        generated: isGeneratedRecipe(r.meta),
+        generatedAt: r.meta.generated_at || null,
+        weeklyRequestId: r.meta.weekly_request_id || null,
     };
+}
+
+function uniqueRecipeSlug(title) {
+    const base = quickMealSlug(title) || 'receta-semanal';
+    let slug = base;
+    let suffix = 2;
+    while (fs.existsSync(path.join(RECIPES_DIR, `${slug}.md`))) slug = `${base}-${suffix++}`;
+    return slug;
+}
+
+function cleanGeneratedMarkdown(markdown) {
+    return String(markdown || '')
+        .trim()
+        .replace(/^```(?:markdown)?\s*/i, '')
+        .replace(/\s*```$/, '')
+        .trim();
+}
+
+async function generateRecipeFromWeeklyIdea(idea) {
+    if (!anthropic) {
+        throw new Error('ANTHROPIC_API_KEY is not configured');
+    }
+
+    const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1800,
+        messages: [{
+            role: 'user',
+            content: `Crea una receta en español a partir de esta idea: "${idea}".
+
+Es para 2 adultos y 2 niños. Debe ser un plato principal familiar, suave, práctico para una comida semanal y con cantidades concretas para cuatro raciones. Respeta cualquier condición incluida en la idea. No inventes afirmaciones sobre fuentes externas.
+
+Devuelve únicamente markdown con esta estructura exacta:
+# Nombre de la receta
+
+## Ingredientes
+
+- cantidad e ingrediente
+
+## Elaboración
+
+1. Paso concreto
+
+Incluye todos los ingredientes usados en la elaboración.`,
+        }],
+    });
+    let markdown = cleanGeneratedMarkdown(message.content?.[0]?.text);
+    const rawTitle = markdown.match(/^#\s+(.+)/m)?.[1]?.trim() || '';
+    const title = rawTitle.replace(/[<>`*_\[\]]/g, '').trim().slice(0, 120);
+    if (!title || /<\/?[a-z][^>]*>/i.test(markdown)
+        || !/^##\s+Ingredientes\s*$/im.test(markdown)
+        || !/^##\s+Elaboraci[oó]n\s*$/im.test(markdown)
+        || extractRecipeIngredients(markdown).length === 0) {
+        throw new Error('The generated recipe did not contain the expected title, ingredients, and method');
+    }
+    markdown = markdown.replace(/^#\s+.+/m, `# ${title}`);
+    return { title, markdown };
+}
+
+function saveGeneratedWeeklyRecipe({ title, markdown, requestId }) {
+    if (!fs.existsSync(RECIPES_DIR)) fs.mkdirSync(RECIPES_DIR, { recursive: true });
+    const slug = uniqueRecipeSlug(title);
+    const content = serializeFrontmatter({
+        category: 'mains',
+        generated: 'true',
+        source: 'weekly-idea',
+        generated_at: new Date().toISOString(),
+        weekly_request_id: requestId,
+    }, markdown);
+    fs.writeFileSync(path.join(RECIPES_DIR, `${slug}.md`), content, 'utf8');
+    return getRecipe(slug);
+}
+
+async function generateWeeklyPlanRecipe(requestId) {
+    const initialPlan = readWeeklyPlan();
+    const initialRequest = initialPlan.requests.find(request => request.id === requestId);
+    if (!initialRequest || initialRequest.type !== 'recipe-idea') {
+        const error = new Error('Recipe idea not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    if (initialRequest.recipeSlug && getRecipe(initialRequest.recipeSlug)) {
+        return expandWeeklyPlan(initialPlan);
+    }
+
+    try {
+        const generated = await generateRecipeFromWeeklyIdea(initialRequest.text);
+        const latestPlan = readWeeklyPlan();
+        const request = latestPlan.requests.find(item => item.id === requestId);
+        if (!request) {
+            const error = new Error('Recipe idea was removed while it was being generated');
+            error.statusCode = 409;
+            throw error;
+        }
+        const recipe = saveGeneratedWeeklyRecipe({ ...generated, requestId });
+        request.status = 'generated';
+        request.recipeSlug = recipe.slug;
+        request.recipeTitle = recipe.title;
+        request.generatedAt = recipe.generatedAt;
+        delete request.lastError;
+        latestPlan.selectedRecipes = [...new Set([...latestPlan.selectedRecipes, recipe.slug])];
+        latestPlan.orderReady = false;
+        latestPlan.updatedAt = new Date().toISOString();
+        writeWeeklyPlanFile(latestPlan);
+        return saveWeeklyPlan({
+            selectedRecipes: latestPlan.selectedRecipes,
+            selectedQuickMeals: latestPlan.selectedQuickMeals,
+            orderReady: false,
+        });
+    } catch (error) {
+        const latestPlan = readWeeklyPlan();
+        const request = latestPlan.requests.find(item => item.id === requestId);
+        if (request) {
+            request.status = 'generation-failed';
+            request.lastError = error.message;
+            latestPlan.orderReady = false;
+            latestPlan.updatedAt = new Date().toISOString();
+            writeWeeklyPlanFile(latestPlan);
+        }
+        throw error;
+    }
 }
 
 function deleteRecipe(slug) {
@@ -236,12 +694,42 @@ function deleteRecipe(slug) {
         const imgPath = path.join(RECIPES_DIR, r.safeSlug + ext);
         if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     }
+
+    const plan = readWeeklyPlan();
+    const wasSelected = plan.selectedRecipes.includes(r.safeSlug);
+    let requestChanged = false;
+    plan.requests = plan.requests.map(request => {
+        if (request.recipeSlug !== r.safeSlug) return request;
+        requestChanged = true;
+        const pending = { ...request, status: 'pending' };
+        delete pending.recipeSlug;
+        delete pending.recipeTitle;
+        delete pending.generatedAt;
+        delete pending.lastError;
+        return pending;
+    });
+    if (wasSelected || requestChanged) {
+        plan.selectedRecipes = plan.selectedRecipes.filter(item => item !== r.safeSlug);
+        plan.orderReady = false;
+        plan.updatedAt = new Date().toISOString();
+        writeWeeklyPlanFile(plan);
+        saveWeeklyPlan({
+            selectedRecipes: plan.selectedRecipes,
+            selectedQuickMeals: plan.selectedQuickMeals,
+            orderReady: false,
+        });
+    }
     return { slug: r.safeSlug };
 }
 
-function updateRecipeMeta(slug, { title, altName } = {}) {
+function updateRecipeMeta(slug, { title, altName, category } = {}) {
     const r = readRecipeFile(slug);
     if (!r) throw new Error('Recipe not found');
+    if (category !== undefined && !RECIPE_CATEGORIES.some(c => c.id === category)) {
+        const error = new Error('Choose a valid recipe category');
+        error.statusCode = 400;
+        throw error;
+    }
 
     let body = r.body;
     if (typeof title === 'string' && title.trim()) {
@@ -254,6 +742,7 @@ function updateRecipeMeta(slug, { title, altName } = {}) {
     }
 
     const meta = { ...r.meta };
+    if (category !== undefined) meta.category = category;
     if (typeof altName === 'string') {
         const trimmed = altName.trim();
         if (trimmed) meta.alt = trimmed;
@@ -688,6 +1177,136 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
+    // GET /api/weekly-plan - Read the persisted plan for next week
+    if (pathname === '/api/weekly-plan' && req.method === 'GET') {
+        res.end(JSON.stringify(expandWeeklyPlan(readWeeklyPlan())));
+        return;
+    }
+
+    // PUT /api/weekly-plan - Save selections, sync their ingredients, and set readiness
+    if (pathname === '/api/weekly-plan' && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            res.end(JSON.stringify(saveWeeklyPlan(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // POST /api/weekly-plan/requests - Add a recipe idea or an extra shopping list
+    if (pathname === '/api/weekly-plan/requests' && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            const request = addWeeklyPlanRequest(data);
+            if (request.type === 'recipe-idea') {
+                try {
+                    const plan = await generateWeeklyPlanRecipe(request.id);
+                    res.statusCode = 201;
+                    res.end(JSON.stringify(plan));
+                } catch (generationError) {
+                    console.error('Weekly recipe generation error:', generationError.message);
+                    res.statusCode = 202;
+                    res.end(JSON.stringify({
+                        ...expandWeeklyPlan(readWeeklyPlan()),
+                        generationWarning: generationError.message,
+                    }));
+                }
+            } else {
+                res.statusCode = 201;
+                res.end(JSON.stringify(expandWeeklyPlan(readWeeklyPlan())));
+            }
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // POST /api/weekly-plan/requests/:id/generate - Retry a saved recipe idea
+    const plannerGenerateMatch = pathname.match(/^\/api\/weekly-plan\/requests\/([^/]+)\/generate$/);
+    if (plannerGenerateMatch && req.method === 'POST') {
+        try {
+            const plan = await generateWeeklyPlanRecipe(decodeURIComponent(plannerGenerateMatch[1]));
+            res.end(JSON.stringify(plan));
+        } catch (error) {
+            console.error('Weekly recipe generation retry error:', error.message);
+            res.statusCode = error.statusCode || 500;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // DELETE /api/weekly-plan/requests/:id - Remove a saved idea or extra list
+    const plannerRequestMatch = pathname.match(/^\/api\/weekly-plan\/requests\/([^/]+)$/);
+    if (plannerRequestMatch && req.method === 'DELETE') {
+        try {
+            res.end(JSON.stringify(removeWeeklyPlanRequest(decodeURIComponent(plannerRequestMatch[1]))));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // GET /api/recurring-items - Read separately persisted repeat purchases
+    if (pathname === '/api/recurring-items' && req.method === 'GET') {
+        res.end(JSON.stringify(readRecurringItems()));
+        return;
+    }
+
+    // PUT /api/recurring-items - Replace repeat purchases and require order review
+    if (pathname === '/api/recurring-items' && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : [];
+            res.end(JSON.stringify(saveRecurringItems(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // GET /api/quick-meals - Built-in simple plates plus lightweight custom meals
+    if (pathname === '/api/quick-meals' && req.method === 'GET') {
+        res.end(JSON.stringify(listQuickMeals()));
+        return;
+    }
+
+    // POST /api/quick-meals - Create a lightweight meal from a name and ingredients
+    if (pathname === '/api/quick-meals' && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            res.statusCode = 201;
+            res.end(JSON.stringify(createQuickMeal(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
     // GET /api/recipes - List recipes
     if (pathname === '/api/recipes' && req.method === 'GET') {
         res.end(JSON.stringify(listRecipes()));
@@ -722,7 +1341,7 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
-    // PUT /api/recipes/:slug - Update title and/or alt name
+    // PUT /api/recipes/:slug - Update title, alt name, and/or category
     const updateMatch = pathname.match(/^\/api\/recipes\/([^/]+)$/);
     if (updateMatch && req.method === 'PUT') {
         try {
@@ -735,11 +1354,12 @@ async function handleAPI(req, res, pathname) {
             const updated = updateRecipeMeta(updateMatch[1], {
                 title: data.title,
                 altName: data.altName,
+                category: data.category,
             });
             res.end(JSON.stringify(updated));
         } catch (error) {
             console.error('Recipe update error:', error.message);
-            res.statusCode = error.message === 'Recipe not found' ? 404 : 500;
+            res.statusCode = error.statusCode || (error.message === 'Recipe not found' ? 404 : 500);
             res.end(JSON.stringify({ error: error.message }));
         }
         return;

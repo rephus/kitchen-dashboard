@@ -8,9 +8,11 @@ Este documento recoge las preferencias confirmadas por Javier para preparar futu
 
 - Familia: 2 adultos y 2 niños.
 - Código postal de reparto: 29130.
+- Supermercado favorito: **Mercadona**.
 - Supermercado para esta prueba: DIA.
 - Utilizar la cuenta de DIA de Javier al preparar compras, para aplicar sus condiciones y comprobar la cesta de su cuenta. Inicio de sesión realizado el 17/09/2026: el agente verificó que la compra se conservó y Javier confirmó que la misma cesta aparecía en otro dispositivo. Esto confirma el comportamiento entre dispositivos, no el esquema interno de almacenamiento de DIA.
 - El agente prepara la cesta; Javier la revisa y tramita el pedido.
+- Mercadona acepta la dirección de Alhaurín de la Torre, 29130, mediante su web clásica. El 23/09/2026 la pantalla de pedido mostró tramos de entrega y una tarifa de servicio de 8,20 €. Considerar Mercadona como primera opción para futuras pruebas de automatización, manteniendo DIA disponible hasta validar una cesta completa y la persistencia de sesión.
 
 ## Productos
 

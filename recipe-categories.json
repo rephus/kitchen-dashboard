@@ -1,0 +1,9 @@
+[
+    { "id": "mains", "label": "Main courses" },
+    { "id": "starters", "label": "Starters & soups" },
+    { "id": "sides", "label": "Sides & salads" },
+    { "id": "sauces-basics", "label": "Sauces & basics" },
+    { "id": "desserts", "label": "Desserts & baking" },
+    { "id": "drinks", "label": "Drinks" },
+    { "id": "uncategorized", "label": "Uncategorized" }
+]
