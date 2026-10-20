@@ -7,6 +7,10 @@ function comparable(value) {
         .toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function suggestionPreview({ recipe, ...suggestion }) {
+    return { ...suggestion, ingredients: recipe?.ingredients || [] };
+}
+
 function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeFile,
     getRecipe, uniqueRecipeSlug, readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
     cacheFile, fetchSuggestions }) {
@@ -36,8 +40,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
         const available = [];
         for (const item of suggestions) {
             if (item.category === 'mains' && !findExisting(item)) {
-                const { recipe, ...suggestion } = item;
-                available.push(suggestion);
+                available.push(suggestionPreview(item));
                 if (available.length === 15) break;
             }
         }
@@ -76,7 +79,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
                 fs.renameSync(temporary, cacheFile);
             }
             suggestions = next;
-            return available.map(({ recipe, ...suggestion }) => suggestion);
+            return available.map(suggestionPreview);
         } finally {
             shuffling = false;
         }

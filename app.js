@@ -194,6 +194,10 @@ function openRecipeSuggestion(id) {
             <p class="planner-suggestion-source">Plato principal · ${escapeHtml(suggestionMeta(recipe))}</p>
             <h2 id="suggestion-dialog-title">${escapeHtml(recipe.title)}</h2>
             <p>${escapeHtml(recipe.description)}</p>
+            <section class="suggestion-dialog-ingredients" aria-labelledby="suggestion-ingredients-heading">
+                <h3 id="suggestion-ingredients-heading">Ingredients</h3>
+                <ul>${(recipe.ingredients || []).map(ingredient => `<li>${escapeHtml(ingredient)}</li>`).join('')}</ul>
+            </section>
             <a href="${escapeHtml(recipe.sourceUrl)}" target="_blank" rel="noopener noreferrer">View original on ${escapeHtml(recipe.source)} ↗</a>
         </div>`;
     document.getElementById('suggestion-dialog-error').hidden = true;

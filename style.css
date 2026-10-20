@@ -2317,6 +2317,10 @@ input[type="number"] {
 .suggestion-dialog-copy h2 { margin: 10px 0 14px; font-size: 25px; line-height: 1.2; padding-right: 30px; }
 .suggestion-dialog-copy > p:not(.planner-suggestion-source) { color: #c2c7d1; line-height: 1.7; }
 .suggestion-dialog-copy a { display: inline-block; margin-top: 18px; color: #fb879a; font-size: 14px; }
+.suggestion-dialog-ingredients { margin-top: 20px; }
+.suggestion-dialog-ingredients h3 { margin-bottom: 10px; font-size: 16px; }
+.suggestion-dialog-ingredients ul { padding-left: 20px; color: #c2c7d1; font-size: 14px; line-height: 1.6; }
+.suggestion-dialog-ingredients li { margin-bottom: 6px; }
 .suggestion-dialog-actions { padding: 12px 24px 24px; }
 .suggestion-dialog-actions button {
     width: 100%;
