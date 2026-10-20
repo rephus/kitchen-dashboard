@@ -6,12 +6,26 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 // Load .env
 require('dotenv').config();
+const { readRecipeIngredients } = require('./ingredient-normalizer');
+const NORMALIZED_RECIPES_DIR = path.join(__dirname, 'data', 'recipe-ingredients');
 const { handlePrinterAPI } = require('./printer-api');
 const { groupShoppingItems, formatGroupedShoppingList } = require('./shopping-grouper');
 const {
+    defaultShoppingRules,
+    normalizeShoppingRules,
+    replaceShoppingRulesSection,
+} = require('./shopping-rules');
+const {
+    PLAN_ITEM_SOURCE,
+    normalizeIngredient,
+    canonicalPantryIngredient,
+    canonicalIngredientKey,
+    legacyIngredientKey,
     extractRecipeIngredients,
     buildPlanShoppingItems,
-    reconcilePlanShoppingItems,
+    buildOrderProposal,
+    spiceKey,
+    isSpiceExcluded,
 } = require('./weekly-plan');
 
 // ===================
@@ -131,6 +145,10 @@ const WEEKLY_PLAN_FILE = path.join(__dirname, 'data', 'weekly-plan.json');
 const SIMPLE_PLATES_FILE = path.join(__dirname, 'data', 'simple-plates.json');
 const CUSTOM_QUICK_MEALS_FILE = path.join(__dirname, 'data', 'quick-meals.json');
 const RECURRING_ITEMS_FILE = path.join(__dirname, 'data', 'recurring-items.json');
+const SPICE_RULE_FILE = path.join(__dirname, 'data', 'pantry-spice-rule.json');
+const PANTRY_ITEMS_FILE = path.join(__dirname, 'data', 'pantry-items.json');
+const SHOPPING_RULES_FILE = path.join(__dirname, 'data', 'shopping-rules.json');
+const SHOPPING_PREFERENCES_FILE = path.join(__dirname, 'compras', 'preferencias.md');
 
 function ensureDataDir() {
     const dir = path.dirname(SHOPPING_FILE);
@@ -140,7 +158,10 @@ function ensureDataDir() {
 function readShoppingList() {
     ensureDataDir();
     try {
-        return JSON.parse(fs.readFileSync(SHOPPING_FILE, 'utf8'));
+        const parsed = JSON.parse(fs.readFileSync(SHOPPING_FILE, 'utf8'));
+        const { items, changed } = normalizeShoppingItems(parsed);
+        if (changed) fs.writeFileSync(SHOPPING_FILE, JSON.stringify(items, null, 2));
+        return items;
     } catch (e) {
         return [];
     }
@@ -148,7 +169,22 @@ function readShoppingList() {
 
 function writeShoppingList(items) {
     ensureDataDir();
-    fs.writeFileSync(SHOPPING_FILE, JSON.stringify(items, null, 2));
+    const normalized = normalizeShoppingItems(items).items;
+    fs.writeFileSync(SHOPPING_FILE, JSON.stringify(normalized, null, 2));
+}
+
+function normalizeShoppingItems(items) {
+    if (!Array.isArray(items)) return { items: [], changed: true };
+    // Recipe ingredients belong exclusively to Weekly Plan. Remove legacy
+    // generated entries, including those sent back by an already-open client.
+    const manualItems = items.filter(item => item?.source !== PLAN_ITEM_SOURCE);
+    let changed = manualItems.length !== items.length;
+    const normalized = manualItems.map(item => {
+        if (item?.id) return item;
+        changed = true;
+        return { ...item, id: createPlannerId('shopping') };
+    });
+    return { items: normalized, changed };
 }
 
 function quickMealSlug(title) {
@@ -173,10 +209,10 @@ function listQuickMeals() {
     try {
         const items = JSON.parse(fs.readFileSync(SIMPLE_PLATES_FILE, 'utf8'));
         basic = Array.isArray(items) ? items.map((item, index) => ({
-            id: `basic-${index + 1}-${quickMealSlug(item.title)}`,
+            id: item.id || `basic-${index + 1}-${quickMealSlug(item.title)}`,
             title: item.title,
             ingredients: Array.isArray(item.ingredients) ? item.ingredients : [],
-            note: item.note || 'Basic quick meal',
+            note: item.note || 'Plato rápido sencillo',
             builtIn: true,
         })) : [];
     } catch (e) { /* return custom meals only */ }
@@ -206,7 +242,7 @@ function createQuickMeal({ title, ingredients } = {}) {
         id,
         title: cleanTitle,
         ingredients: cleanIngredients,
-        note: 'Custom quick meal',
+        note: 'Plato rápido personalizado',
         builtIn: false,
         createdAt: new Date().toISOString(),
     };
@@ -222,6 +258,7 @@ function emptyWeeklyPlan() {
         period: 'next-week',
         selectedRecipes: [],
         selectedQuickMeals: [],
+        excludedIngredients: [],
         requests: [],
         orderReady: false,
         updatedAt: null,
@@ -237,6 +274,9 @@ function readWeeklyPlan() {
             ...data,
             selectedRecipes: Array.isArray(data.selectedRecipes) ? data.selectedRecipes : [],
             selectedQuickMeals: Array.isArray(data.selectedQuickMeals) ? data.selectedQuickMeals : [],
+            excludedIngredients: Array.isArray(data.excludedIngredients)
+                ? data.excludedIngredients.map(normalizeIngredient).filter(Boolean)
+                : [],
             requests: Array.isArray(data.requests) ? data.requests : [],
             orderReady: data.orderReady === true,
         };
@@ -256,6 +296,142 @@ function defaultRecurringItems() {
         quantity: 2,
         active: true,
     }];
+}
+
+function defaultPantryItems() {
+    return [
+        { key: 'aceite de oliva', label: 'Aceite de oliva' },
+        { key: 'sal', label: 'Sal' },
+        { key: 'ajo', label: 'Ajo' },
+        { key: 'comino', label: 'Comino molido' },
+        { key: 'cilantro molido', label: 'Cilantro molido' },
+    ];
+}
+
+function normalizePantryItems(items) {
+    if (!Array.isArray(items) || items.length > 200) {
+        const error = new Error('Pantry items must be an array with at most 200 entries');
+        error.statusCode = 400;
+        throw error;
+    }
+    const byKey = new Map();
+    for (const item of items) {
+        const rawLabel = typeof item === 'string' ? item : item?.label || item?.key;
+        const label = String(rawLabel || '').trim().replace(/\s+/g, ' ');
+        const key = canonicalPantryIngredient(typeof item === 'string' ? item : item?.key || label);
+        if (!key || key.length > 160 || !label || label.length > 160) {
+            const error = new Error('Each pantry item needs a name of up to 160 characters');
+            error.statusCode = 400;
+            throw error;
+        }
+        if (!byKey.has(key)) byKey.set(key, { key, label });
+    }
+    return [...byKey.values()];
+}
+
+function writePantryItems(items) {
+    const normalized = normalizePantryItems(items);
+    ensureDataDir();
+    fs.writeFileSync(PANTRY_ITEMS_FILE, JSON.stringify(normalized, null, 2));
+    return normalized;
+}
+
+function readPantryItems() {
+    ensureDataDir();
+    try {
+        const parsed = JSON.parse(fs.readFileSync(PANTRY_ITEMS_FILE, 'utf8'));
+        const normalized = normalizePantryItems(parsed);
+        if (JSON.stringify(parsed) !== JSON.stringify(normalized)) writePantryItems(normalized);
+        return normalized;
+    } catch (error) {
+        const defaults = defaultPantryItems();
+        fs.writeFileSync(PANTRY_ITEMS_FILE, JSON.stringify(defaults, null, 2));
+        return defaults;
+    }
+}
+
+function readSpiceRule() {
+    try { return JSON.parse(fs.readFileSync(SPICE_RULE_FILE, 'utf8')); }
+    catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        return { enabled: true, exceptions: [] };
+    }
+}
+
+function writeSpiceRule(rule) {
+    ensureDataDir();
+    const temporary = `${SPICE_RULE_FILE}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(rule, null, 2));
+    fs.renameSync(temporary, SPICE_RULE_FILE);
+}
+
+function addPantryItem(ingredient) {
+    const key = canonicalPantryIngredient(ingredient);
+    if (!key || key.length > 160) {
+        const error = new Error('Choose a valid meal ingredient');
+        error.statusCode = 400;
+        throw error;
+    }
+    const rule = readSpiceRule();
+    rule.exceptions = rule.exceptions.filter(exception => exception !== spiceKey(ingredient));
+    writeSpiceRule(rule);
+    const items = readPantryItems();
+    if (!items.some(item => item.key === key)) items.push({ key, label: key });
+    return { key, items: writePantryItems(items) };
+}
+
+function removePantryItem(key) {
+    const normalizedKey = canonicalPantryIngredient(key);
+    const items = readPantryItems();
+    const filtered = items.filter(item => item.key !== normalizedKey);
+    const spice = spiceKey(key);
+    if (spice) {
+        const rule = readSpiceRule();
+        rule.exceptions = [...new Set(rule.exceptions.concat(spice))];
+        writeSpiceRule(rule);
+    }
+    if (filtered.length === items.length && !spice) {
+        const error = new Error('Pantry item not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    return writePantryItems(filtered);
+}
+
+function syncShoppingRulesMarkdown(rules) {
+    const markdown = fs.readFileSync(SHOPPING_PREFERENCES_FILE, 'utf8');
+    const updated = replaceShoppingRulesSection(markdown, rules);
+    if (updated !== markdown) fs.writeFileSync(SHOPPING_PREFERENCES_FILE, updated);
+}
+
+function writeShoppingRules(items, { resetOrderReady = true } = {}) {
+    const normalized = normalizeShoppingRules(items, () => createPlannerId('rule'));
+    ensureDataDir();
+    fs.writeFileSync(SHOPPING_RULES_FILE, JSON.stringify(normalized, null, 2));
+    syncShoppingRulesMarkdown(normalized);
+    if (resetOrderReady) {
+        const plan = readWeeklyPlan();
+        writeWeeklyPlanFile({
+            ...plan,
+            orderReady: false,
+            updatedAt: new Date().toISOString(),
+        });
+    }
+    return normalized;
+}
+
+function readShoppingRules() {
+    ensureDataDir();
+    try {
+        const parsed = JSON.parse(fs.readFileSync(SHOPPING_RULES_FILE, 'utf8'));
+        const normalized = normalizeShoppingRules(parsed, () => createPlannerId('rule'));
+        if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+            return writeShoppingRules(normalized, { resetOrderReady: false });
+        }
+        return normalized;
+    } catch (error) {
+        return writeShoppingRules(defaultShoppingRules(), { resetOrderReady: false });
+    }
 }
 
 function readRecurringItems() {
@@ -369,6 +545,7 @@ function expandWeeklyPlan(plan) {
             category: recipe.category,
             image: recipe.image,
             ingredients: extractRecipeIngredients(recipe.content),
+            normalizedIngredients: recipe.ingredients,
         };
     }).filter(Boolean);
     const quickMeals = new Map(listQuickMeals().map(meal => [meal.id, meal]));
@@ -377,13 +554,82 @@ function expandWeeklyPlan(plan) {
         return meal ? { ...meal, type: 'quick' } : null;
     }).filter(Boolean);
     const selected = selectedRecipes.concat(selectedQuickMeals);
+    const mealsById = new Map(selected.map(meal => [meal.id || meal.slug, meal.title]));
+    const pantryItems = readPantryItems();
+    const spiceRule = readSpiceRule();
+    const shoppingItems = buildPlanShoppingItems(
+        selected,
+        plan.excludedIngredients,
+        pantryItems.map(item => item.key),
+        spiceRule,
+    ).map(item => ({
+        ...item,
+        included: !item.excluded,
+        mealTitles: item.mealIds.map(id => mealsById.get(id)).filter(Boolean),
+        variantDetails: item.variants.map(variant => ({
+            text: variant.text,
+            mealTitle: mealsById.get(variant.mealId),
+        })).filter(variant => variant.mealTitle),
+    }));
+    const shoppingList = readShoppingList();
+    const otherShoppingItems = shoppingList
+        .filter(item => item.source !== PLAN_ITEM_SOURCE && !item.checked)
+        .map(item => ({
+            id: item.id,
+            text: item.text,
+            included: item.orderExcluded !== true && !item.excluded && !isSpiceExcluded(item.text, spiceRule),
+        }));
+    const recurringItems = readRecurringItems().filter(item => item.active)
+        .map(item => ({ ...item, included: !isSpiceExcluded(item.text, spiceRule) }));
+    for (const item of [...shoppingItems, ...otherShoppingItems, ...recurringItems]) {
+        const key = item.key || canonicalIngredientKey(item.text);
+        if ((item.pantryRule === 'spices' || isSpiceExcluded(item.text, spiceRule))
+            && !pantryItems.some(pantry => pantry.key === key)) {
+            pantryItems.push({ key, label: item.ingredientName || item.text, rule: 'spices' });
+        }
+    }
 
     return {
         ...plan,
         selected,
-        ingredientCount: buildPlanShoppingItems(selected).length,
-        recurringItems: readRecurringItems().filter(item => item.active),
+        spiceRule,
+        shoppingItems,
+        ...buildOrderProposal({ shoppingItems, otherShoppingItems, recurringItems, shoppingList,
+            excludedIngredients: plan.excludedIngredients, pantryItems, spiceRule }),
+        ingredientCount: shoppingItems.filter(item => item.included).length,
+        pantryItems: pantryItems.map(item => {
+            const matchingMeals = shoppingItems
+                .filter(ingredient => ingredient.pantryKey === item.key)
+                .flatMap(ingredient => ingredient.mealTitles);
+            return { ...item, mealTitles: [...new Set(matchingMeals)] };
+        }),
+        shoppingRules: readShoppingRules().filter(item => item.active),
+        otherShoppingItems,
+        shoppingItemCount: shoppingItems.filter(item => item.included).length
+            + otherShoppingItems.filter(item => item.included).length
+            + recurringItems.filter(item => item.included).length,
+        recurringItems,
     };
+}
+
+function setShoppingItemOrderInclusion(id, included) {
+    const items = readShoppingList();
+    const item = items.find(candidate => candidate.id === id && candidate.source !== PLAN_ITEM_SOURCE);
+    if (!item) {
+        const error = new Error('Shopping item not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (included) delete item.orderExcluded;
+    else item.orderExcluded = true;
+    writeShoppingList(items);
+
+    const plan = readWeeklyPlan();
+    plan.orderReady = false;
+    plan.updatedAt = new Date().toISOString();
+    writeWeeklyPlanFile(plan);
+    return expandWeeklyPlan(plan);
 }
 
 function saveWeeklyPlan(data) {
@@ -419,6 +665,7 @@ function saveWeeklyPlan(data) {
             category: recipe.category,
             image: recipe.image,
             ingredients: extractRecipeIngredients(recipe.content),
+            normalizedIngredients: recipe.ingredients,
         };
     });
     const quickMeals = new Map(listQuickMeals().map(meal => [meal.id, meal]));
@@ -432,15 +679,36 @@ function saveWeeklyPlan(data) {
         return { ...meal, type: 'quick' };
     });
     const selected = selectedRecipeDetails.concat(selectedQuickMealDetails);
+    const requestedExclusions = data.excludedIngredients === undefined
+        ? previous.excludedIngredients
+        : data.excludedIngredients;
+    if (!Array.isArray(requestedExclusions) || requestedExclusions.length > 500
+        || requestedExclusions.some(item => typeof item !== 'string' || item.length > 300)) {
+        const error = new Error('excludedIngredients must contain at most 500 ingredient names');
+        error.statusCode = 400;
+        throw error;
+    }
+    const availableIngredients = buildPlanShoppingItems(selected);
+    const availableIngredientKeys = new Set(availableIngredients.map(item => item.key));
+    const excludedIngredients = [...new Set(requestedExclusions.flatMap(value => {
+        const key = canonicalIngredientKey(value);
+        if (availableIngredientKeys.has(key)) return [key];
+        // Migrate a legacy exclusion when its old key no longer exists.
+        return availableIngredients.filter(item => item.variants.some(variant =>
+            legacyIngredientKey(variant.text) === legacyIngredientKey(value))).map(item => item.key);
+    }))];
 
     const selectionChanged = JSON.stringify(previous.selectedRecipes) !== JSON.stringify(selectedRecipes)
         || JSON.stringify(previous.selectedQuickMeals) !== JSON.stringify(selectedQuickMeals);
-    const orderReady = selectionChanged ? false : data.orderReady === true;
+    const exclusionsChanged = JSON.stringify(previous.excludedIngredients) !== JSON.stringify(excludedIngredients);
+    const orderReady = selectionChanged || exclusionsChanged ? false : data.orderReady === true;
     const hasOrderContent = selected.length > 0
         || previous.requests.length > 0
-        || readRecurringItems().some(item => item.active);
+        || readRecurringItems().some(item => item.active)
+        || readShoppingList().some(item => item.source !== PLAN_ITEM_SOURCE
+            && !item.checked && item.orderExcluded !== true);
     if (orderReady && !hasOrderContent) {
-        const error = new Error('Add at least one meal, weekly request, or recurring item before marking the order ready');
+        const error = new Error('Add at least one meal, shopping item, weekly request, or recurring item before marking the order ready');
         error.statusCode = 400;
         throw error;
     }
@@ -451,12 +719,11 @@ function saveWeeklyPlan(data) {
         period: 'next-week',
         selectedRecipes,
         selectedQuickMeals,
+        excludedIngredients,
         requests: previous.requests,
         orderReady,
         updatedAt: new Date().toISOString(),
     };
-    const planItems = buildPlanShoppingItems(selected);
-    writeShoppingList(reconcilePlanShoppingItems(readShoppingList(), planItems));
     writeWeeklyPlanFile(plan);
 
     return expandWeeklyPlan(plan);
@@ -558,6 +825,7 @@ function getRecipe(slug) {
         altName: r.meta.alt || null,
         category: getRecipeCategory(r.meta),
         content: r.body,
+        ingredients: readRecipeIngredients(r.body, r.safeSlug, NORMALIZED_RECIPES_DIR),
         image: findRecipeImage(r.safeSlug),
         generated: isGeneratedRecipe(r.meta),
         generatedAt: r.meta.generated_at || null,
@@ -606,7 +874,7 @@ Devuelve únicamente markdown con esta estructura exacta:
 
 1. Paso concreto
 
-Incluye todos los ingredientes usados en la elaboración.`,
+Incluye todos los ingredientes usados en la elaboración. Usa un ingrediente por viñeta y conserva explícitamente el formato (fresco, conserva o congelado) y la preparación.`,
         }],
     });
     let markdown = cleanGeneratedMarkdown(message.content?.[0]?.text);
@@ -798,12 +1066,14 @@ async function scanRecipeFromImage(base64Image, mediaType) {
 
 IMPORTANT RULES:
 - Use Spanish language for all text
+- Put one ingredient per bullet. Keep product form (fresh, canned, frozen), quantities and preparation instructions explicit.
+- Do not invent missing quantities or resolve alternative ingredients. Mark unreadable text as [ilegible].
 - Keep ingredient quantities concise (e.g., "1 kg tomate", "200 ml aceite")
 - Use abbreviations: cda (cucharada/tablespoon), cdta (cucharadita/teaspoon), g (gramos), ml (mililitros), kg (kilogramos)
 - Number the steps in "Elaboración" section
 - If there are subsections (like "Sofrito", "Caldo", etc.), include them as ## sections
 - Extract ALL visible ingredients and steps from the image
-- If some text is unclear, use your best judgment but stay faithful to what you can see
+- If some text is unclear, preserve the uncertainty rather than guessing
 - Output ONLY the markdown, no additional commentary
 
 Begin:`
@@ -1172,8 +1442,13 @@ async function handleAPI(req, res, pathname) {
 
     // POST /api/notify/food-ready - Send food-ready push notification via Pushbullet
     if (pathname === '/api/notify/food-ready' && req.method === 'POST') {
-        const ok = await sendPushbulletNotification('cocina', 'La comida esta lista');
-        res.end(JSON.stringify({ ok }));
+        const title = 'cocina';
+        const message = 'La comida esta lista';
+        const results = await Promise.all([
+            sendPushbulletNotification(title, message),
+            callHAService('notify', 'pushbullet_de_mar', { title, message }),
+        ]);
+        res.end(JSON.stringify({ ok: results.every(Boolean) }));
         return;
     }
 
@@ -1183,7 +1458,7 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
-    // PUT /api/weekly-plan - Save selections, sync their ingredients, and set readiness
+    // PUT /api/weekly-plan - Save selections and readiness; ingredients stay in the plan
     if (pathname === '/api/weekly-plan' && req.method === 'PUT') {
         try {
             let body = '';
@@ -1193,6 +1468,125 @@ async function handleAPI(req, res, pathname) {
             });
             const data = body ? JSON.parse(body) : {};
             res.end(JSON.stringify(saveWeeklyPlan(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // GET /api/shopping-rules - Read product-selection rules used by the shopping agent
+    if (pathname === '/api/shopping-rules' && req.method === 'GET') {
+        res.end(JSON.stringify(readShoppingRules()));
+        return;
+    }
+
+    // PUT /api/shopping-rules - Replace product-selection rules and require order review
+    if (pathname === '/api/shopping-rules' && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : [];
+            res.end(JSON.stringify(writeShoppingRules(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // Update the category rule without replacing individual pantry entries.
+    if (pathname === '/api/pantry-spice-rule' && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => { req.on('data', chunk => body += chunk); req.on('end', resolve); });
+            const data = JSON.parse(body);
+            const rule = readSpiceRule();
+            if (typeof data.enabled !== 'boolean') throw new Error('enabled must be true or false');
+            rule.enabled = data.enabled;
+            writeSpiceRule(rule);
+            const plan = readWeeklyPlan();
+            res.end(JSON.stringify(saveWeeklyPlan({ ...plan, orderReady: false })));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // GET /api/pantry-items - Read ingredients excluded from every meal plan
+    if (pathname === '/api/pantry-items' && req.method === 'GET') {
+        res.end(JSON.stringify(readPantryItems()));
+        return;
+    }
+
+    // POST /api/pantry-items - Persist one meal ingredient as always available
+    if (pathname === '/api/pantry-items' && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            const { key } = addPantryItem(data.ingredient);
+            const plan = readWeeklyPlan();
+            res.statusCode = 201;
+            res.end(JSON.stringify(saveWeeklyPlan({
+                selectedRecipes: plan.selectedRecipes,
+                selectedQuickMeals: plan.selectedQuickMeals,
+                excludedIngredients: plan.excludedIngredients
+                    .filter(item => canonicalPantryIngredient(item) !== key),
+                orderReady: false,
+            })));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // DELETE /api/pantry-items/:key - Include a pantry ingredient in meal shopping again
+    const pantryItemMatch = pathname.match(/^\/api\/pantry-items\/([^/]+)$/);
+    if (pantryItemMatch && req.method === 'DELETE') {
+        try {
+            removePantryItem(decodeURIComponent(pantryItemMatch[1]));
+            const plan = readWeeklyPlan();
+            res.end(JSON.stringify(saveWeeklyPlan({
+                selectedRecipes: plan.selectedRecipes,
+                selectedQuickMeals: plan.selectedQuickMeals,
+                excludedIngredients: plan.excludedIngredients,
+                orderReady: false,
+            })));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // PUT /api/weekly-plan/shopping-items/:id - Include or exclude an ordinary list item from this order
+    const plannerShoppingItemMatch = pathname.match(/^\/api\/weekly-plan\/shopping-items\/([^/]+)$/);
+    if (plannerShoppingItemMatch && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            const data = body ? JSON.parse(body) : {};
+            if (typeof data.included !== 'boolean') {
+                const error = new Error('included must be true or false');
+                error.statusCode = 400;
+                throw error;
+            }
+            res.end(JSON.stringify(setShoppingItemOrderInclusion(
+                decodeURIComponent(plannerShoppingItemMatch[1]),
+                data.included,
+            )));
         } catch (error) {
             res.statusCode = error.statusCode || 400;
             res.end(JSON.stringify({ error: error.message }));
@@ -1414,7 +1808,7 @@ async function handleAPI(req, res, pathname) {
                 success: true,
                 slug: result.slug,
                 title: result.title,
-                image: result.image
+                image: result.image,
             }));
         } catch (error) {
             console.error('Recipe scan error:', error);
@@ -1504,7 +1898,7 @@ async function checkSupermarketLocation() {
 
 async function sendShoppingListNotification() {
     const items = readShoppingList();
-    const unchecked = items.filter(i => !i.checked);
+    const unchecked = items.filter(i => !i.checked && !i.excluded && !i.orderExcluded);
 
     if (unchecked.length === 0) {
         console.log('At supermarket but shopping list is empty, skipping notification');

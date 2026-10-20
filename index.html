@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a1a2e">
     <title>Kitchen</title>
-    <link rel="stylesheet" href="style.css?v=quick-meals-20260917">
+    <link rel="stylesheet" href="style.css?v=recipes-mobile-20261018a">
 </head>
 <body>
     <!-- Main Dashboard -->
@@ -48,7 +48,7 @@
             </button>
             <button class="action-btn" id="btn-recipes">
                 <div class="btn-icon">📖</div>
-                <div class="btn-label">Recipes</div>
+                <div class="btn-label">Recetas</div>
             </button>
             <button class="action-btn" id="btn-planner">
                 <div class="btn-icon">🍽</div>
@@ -123,125 +123,152 @@
 
     <!-- Next Week Meal Planner Screen -->
     <div id="planner-screen" class="screen">
-        <div class="planner-sticky-shell">
-            <header class="screen-header">
-                <button class="back-btn" data-back="dashboard">←</button>
-                <h1>Next Week</h1>
-                <button class="planner-regen-btn" id="planner-regen-btn" title="Show other main courses">⟳</button>
-            </header>
-
-            <section id="planner-ready-card" class="planner-ready-card">
-                <div class="planner-ready-summary">
-                    <strong id="planner-count">0 meals · 0 shopping items</strong>
-                    <small id="planner-ready-status">Waiting: the scheduler will leave the basket unchanged.</small>
+        <header class="planner-page-header">
+            <div class="planner-page-title">
+                <button class="back-btn" data-back="dashboard" aria-label="Back">←</button>
+                <div>
+                    <h1>Next week</h1>
+                    <p id="planner-count">0 meals · 0 shopping items</p>
                 </div>
+            </div>
+            <div id="planner-ready-card" class="planner-ready-card">
                 <label class="planner-ready-label" for="planner-order-ready">
-                    <span>Order ready</span>
-                    <span class="planner-switch">
-                        <input type="checkbox" id="planner-order-ready">
-                        <span aria-hidden="true"></span>
-                    </span>
+                    <input type="checkbox" id="planner-order-ready">
+                    <span class="planner-ready-indicator" aria-hidden="true"></span>
+                    <span>Mark order ready</span>
                 </label>
+                <small id="planner-ready-status">Until then, the basket stays unchanged</small>
+            </div>
+        </header>
+
+        <nav class="planner-tabs" aria-label="Weekly plan">
+            <button type="button" class="is-active" data-planner-tab="menu">
+                <span>Menu</span><span class="planner-tab-count" id="planner-menu-count">0</span>
+            </button>
+            <button type="button" data-planner-tab="browse">
+                <span>Browse</span><span class="planner-tab-count" id="planner-browse-count">0</span>
+            </button>
+            <button type="button" data-planner-tab="shopping">
+                <span>Shopping</span><span class="planner-tab-count" id="planner-shopping-count">0</span>
+            </button>
+            <button type="button" data-planner-tab="rules">
+                <span>Rules</span><span class="planner-tab-count" id="planner-rules-count">0</span>
+            </button>
+        </nav>
+
+        <div class="planner-tab-content">
+            <section class="planner-tab-panel is-active" data-planner-panel="menu" aria-label="Selected menu">
+                <div id="planner-selected" class="planner-selected"></div>
+                <button type="button" class="planner-add-meals" data-open-planner-tab="browse">＋ Añadir platos</button>
             </section>
 
-            <nav class="planner-jump-nav" aria-label="Weekly plan sections">
-                <button type="button" data-planner-jump="planner-selected-section">Selected</button>
-                <button type="button" data-planner-jump="planner-suggestions-section">Meals</button>
-                <button type="button" data-planner-jump="planner-requests-section">Ideas</button>
-                <button type="button" data-planner-jump="planner-recurring-section">Recurring</button>
-            </nav>
-        </div>
+            <section class="planner-tab-panel" data-planner-panel="browse" aria-label="Browse recipes">
+                <input type="search" id="planner-search" class="planner-search" placeholder="Buscar en todas las recetas…" autocomplete="off">
+                <nav class="planner-filters" aria-label="Recipe browser sections">
+                    <button type="button" class="is-active" data-planner-filter="mains">Todos los platos principales</button>
+                    <button type="button" data-planner-filter="quick">Platos rápidos</button>
+                    <button type="button" data-planner-filter="all">Todas las recetas</button>
+                    <button type="button" data-planner-filter="ideas">Ideas y listas</button>
+                </nav>
 
-        <div class="planner-scroll-content">
-        <section id="planner-selected-section" class="planner-section planner-scroll-target" aria-labelledby="planner-selected-title">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-selected-title">Selected meals</h2>
-                    <p>Your current menu. Tap ingredients only when you need the detail.</p>
+                <div class="planner-browser-panel is-active" data-planner-browser="recipes">
+                    <div id="planner-list" class="planner-list"></div>
                 </div>
-            </div>
-            <div id="planner-selected" class="planner-selected"></div>
-        </section>
 
-        <section id="planner-suggestions-section" class="planner-section planner-scroll-target" aria-labelledby="planner-suggestions-title">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-suggestions-title">Suggested main courses</h2>
-                    <p>Swipe sideways on mobile to browse without losing your place.</p>
+                <div class="planner-browser-panel" data-planner-browser="quick">
+                    <div id="planner-quick-list" class="planner-quick-list"></div>
+                    <details class="planner-new-quick">
+                        <summary>＋ Crear un plato rápido</summary>
+                        <form id="planner-new-quick-form">
+                            <label>
+                                <span>Nombre del plato</span>
+                                <input type="text" id="planner-quick-title" placeholder="p. ej., pasta con atún" required autocomplete="off">
+                            </label>
+                            <label>
+                                <span>Ingredientes, separados por comas</span>
+                                <input type="text" id="planner-quick-ingredients" placeholder="pasta, atún, tomate" required autocomplete="off">
+                            </label>
+                            <button type="submit">Create and select</button>
+                        </form>
+                    </details>
                 </div>
-            </div>
-            <div id="planner-list" class="planner-list"></div>
-        </section>
 
-        <section class="planner-section" aria-labelledby="planner-quick-title-heading">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-quick-title-heading">Quick meals</h2>
-                    <p>Simple family meals with ingredients ready to add.</p>
+                <div class="planner-browser-panel" data-planner-browser="ideas">
+                    <div id="planner-requests-list" class="planner-requests-list"></div>
+                    <form id="planner-request-form" class="planner-request-form">
+                        <div class="planner-request-types">
+                            <label><input type="radio" name="planner-request-type" value="recipe-idea" checked><span>Idea de receta</span></label>
+                            <label><input type="radio" name="planner-request-type" value="extra-list"><span>Paste a list</span></label>
+                        </div>
+                        <textarea id="planner-request-text" rows="3" maxlength="2000" placeholder="e.g. An easy fish pie for four" required></textarea>
+                        <button type="submit" id="planner-request-submit">Generar receta</button>
+                    </form>
                 </div>
-            </div>
-            <div id="planner-quick-list" class="planner-quick-list"></div>
-            <details class="planner-new-quick">
-                <summary>＋ Create a quick meal</summary>
-                <form id="planner-new-quick-form">
-                    <label>
-                        <span>Meal name</span>
-                        <input type="text" id="planner-quick-title" placeholder="e.g. Tuna pasta" required autocomplete="off">
-                    </label>
-                    <label>
-                        <span>Ingredients, separated by commas</span>
-                        <input type="text" id="planner-quick-ingredients" placeholder="pasta, tuna in olive oil, tomato" required autocomplete="off">
-                    </label>
-                    <button type="submit">Create and select</button>
+            </section>
+
+            <section class="planner-tab-panel" data-planner-panel="shopping" aria-label="Shopping review">
+                <div class="planner-shopping-heading">
+                    <h2>From your meals</h2>
+                    <span>Untick what you already have</span>
+                </div>
+                <div id="planner-shopping-list" class="planner-shopping-list"></div>
+
+                <div class="planner-shopping-heading planner-pantry-heading">
+                    <h2>Always at home</h2>
+                    <span>Excluded from every meal plan</span>
+                </div>
+                <label class="planner-pantry-item">
+                    <input type="checkbox" id="planner-spice-rule">
+                    <div>
+                        <strong>Spices &amp; dried herbs</strong>
+                        <small>Always at home. Fresh herbs stay on the shopping list.</small>
+                    </div>
+                </label>
+                <div id="planner-spice-exceptions" class="planner-pantry-list"></div>
+                <form id="planner-pantry-form" class="planner-extras-form planner-pantry-form">
+                    <input type="text" id="planner-pantry-text" maxlength="160" placeholder="e.g. oregano" aria-label="Ingredient always at home" required autocomplete="off">
+                    <button type="submit">Add ingredient</button>
                 </form>
-            </details>
-        </section>
+                <div id="planner-pantry-list" class="planner-pantry-list"></div>
 
-        <section class="planner-section planner-any-recipe" aria-labelledby="planner-any-title">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-any-title">Add another recipe</h2>
-                    <p>Choose anything from your recipe collection.</p>
+                <div class="planner-shopping-heading planner-other-heading">
+                    <h2>Other shopping</h2>
+                    <span>From your shopping list</span>
                 </div>
-            </div>
-            <div class="planner-any-row">
-                <select id="planner-recipe-select" aria-label="Choose any recipe"></select>
-                <button type="button" id="planner-add-any-btn">Add</button>
-            </div>
-        </section>
+                <div id="planner-other-shopping-list" class="planner-shopping-list"></div>
 
-        <section id="planner-requests-section" class="planner-section planner-scroll-target" aria-labelledby="planner-requests-title">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-requests-title">Ideas & extra lists</h2>
-                    <p>Generate a new recipe, or paste an additional shopping list.</p>
+                <div class="planner-shopping-heading planner-recurring-heading">
+                    <h2>Every week</h2>
+                    <span>Included in each order while on</span>
                 </div>
-            </div>
-            <div id="planner-requests-list" class="planner-requests-list"></div>
-            <form id="planner-request-form" class="planner-request-form">
-                <select id="planner-request-type" aria-label="Type of weekly request">
-                    <option value="recipe-idea">Recipe idea</option>
-                    <option value="extra-list">Extra shopping list</option>
-                </select>
-                <textarea id="planner-request-text" rows="3" maxlength="2000" placeholder="e.g. Find an easy fish pie for four" required></textarea>
-                <button type="submit">Add</button>
-            </form>
-        </section>
+                <div id="planner-recurring-list" class="planner-recurring-list"></div>
 
-        <section id="planner-recurring-section" class="planner-section planner-scroll-target" aria-labelledby="planner-recurring-title">
-            <div class="planner-section-heading">
-                <div>
-                    <h2 id="planner-recurring-title">Recurring items</h2>
-                    <p>Active items are included whenever an order is prepared.</p>
+                <div class="planner-shopping-heading planner-extras-heading">
+                    <h2>Extras this week</h2>
                 </div>
-            </div>
-            <div id="planner-recurring-list" class="planner-recurring-list"></div>
-            <form id="planner-recurring-form" class="planner-recurring-form">
-                <input type="text" id="planner-recurring-text" maxlength="160" placeholder="Item name" aria-label="Recurring item name" required autocomplete="off">
-                <input type="number" id="planner-recurring-quantity" min="1" max="99" value="1" aria-label="Quantity" required>
-                <button type="submit">Add</button>
-            </form>
-        </section>
+                <form id="planner-extras-form" class="planner-extras-form">
+                    <input type="text" id="planner-extras-text" maxlength="2000" placeholder="Add an item…" required autocomplete="off">
+                    <button type="submit" value="this-week">This week</button>
+                    <button type="submit" value="every-week">Every week</button>
+                </form>
+            </section>
+
+            <section class="planner-tab-panel" data-planner-panel="rules" aria-label="Shopping rules">
+                <header class="planner-rules-header">
+                    <div>
+                        <h2>Shopping rules</h2>
+                        <p>Applied when the shopping agent chooses a product or substitution.</p>
+                    </div>
+                    <span>Changes require order review</span>
+                </header>
+                <div id="planner-rules-list" class="planner-rules-list"></div>
+                <form id="planner-rule-add-form" class="planner-rule-add-form">
+                    <h3>Add a rule</h3>
+                    <input type="text" id="planner-rule-product" maxlength="120" placeholder="Product, e.g. Eggs" required autocomplete="off">
+                    <textarea id="planner-rule-text" rows="2" maxlength="600" placeholder="Rule, e.g. Always choose 6 free-range eggs" required></textarea>
+                    <button type="submit">Add rule</button>
+                </form>
+            </section>
         </div>
     </div>
 
@@ -249,16 +276,16 @@
     <div id="recipes-screen" class="screen">
         <header class="screen-header">
             <button class="back-btn" data-back="dashboard">←</button>
-            <h1>Recipes</h1>
+            <h1>Recetas</h1>
         </header>
         <div class="recipes-search">
-            <input type="search" id="recipes-search-input" placeholder="Search all categories..." aria-label="Search recipes in all categories" autocomplete="off">
+            <input type="search" id="recipes-search-input" placeholder="Buscar en todas las categorías..." aria-label="Buscar recetas en todas las categorías" autocomplete="off">
         </div>
         <nav id="recipe-categories" class="recipe-categories" aria-label="Recipe categories"></nav>
         <div class="recipes-toolbar">
             <button class="scan-recipe-btn" id="scan-recipe-btn">
                 <span class="scan-icon">📷</span>
-                <span class="scan-label">Scan Recipe</span>
+                <span class="scan-label">Escanear receta</span>
             </button>
         </div>
         <input type="file" id="recipe-camera-input" accept="image/*" capture="camera" style="display:none">
@@ -268,26 +295,26 @@
         <div id="recipe-detail" class="recipe-detail" style="display:none">
             <header class="screen-header">
                 <button class="back-btn" id="recipe-detail-back" data-back="recipes-screen">←</button>
-                <h1 id="recipe-detail-title">Recipe</h1>
-                <button class="recipe-edit-btn" id="recipe-edit-btn" title="Edit recipe">✎</button>
+                <h1 id="recipe-detail-title">Receta</h1>
+                <button class="recipe-edit-btn" id="recipe-edit-btn" title="Editar receta">✎</button>
             </header>
             <div id="recipe-edit-form" class="recipe-edit-form" style="display:none">
                 <label>
-                    <span>Title</span>
+                    <span>Título</span>
                     <input type="text" id="recipe-edit-title" autocomplete="off">
                 </label>
                 <label>
-                    <span>Alternative name (used for image search)</span>
-                    <input type="text" id="recipe-edit-alt" autocomplete="off" placeholder="e.g. hummus">
+                    <span>Nombre alternativo (para buscar imágenes)</span>
+                    <input type="text" id="recipe-edit-alt" autocomplete="off" placeholder="p. ej., hummus">
                 </label>
                 <label>
-                    <span>Category</span>
+                    <span>Categoría</span>
                     <select id="recipe-edit-category"></select>
                 </label>
                 <div class="recipe-edit-actions">
-                    <button type="button" id="recipe-edit-delete">Delete</button>
-                    <button type="button" id="recipe-edit-cancel">Cancel</button>
-                    <button type="button" id="recipe-edit-save">Save</button>
+                    <button type="button" id="recipe-edit-delete">Eliminar</button>
+                    <button type="button" id="recipe-edit-cancel">Cancelar</button>
+                    <button type="button" id="recipe-edit-save">Guardar</button>
                 </div>
             </div>
             <div id="recipe-detail-content" class="recipe-detail-content"></div>
@@ -295,6 +322,6 @@
     </div>
 
     <div id="toast" class="toast"></div>
-    <script src="app.js?v=quick-meals-20260917"></script>
+    <script src="app.js?v=weekly-tabs-20260924i"></script>
 </body>
 </html>

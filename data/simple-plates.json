@@ -1,233 +1,402 @@
 [
   {
-    "title": "Chicken breast, rice and tomato salad",
+    "id": "basic-1-chicken-breast-rice-and-tomato-salad",
+    "title": "Pechuga de pollo, arroz y ensalada de tomate",
     "meal": "lunch",
     "group": "meat",
-    "note": "Simple plate",
-    "ingredients": ["chicken breast", "rice", "tomato", "olive oil"]
+    "note": "Plato sencillo",
+    "ingredients": [
+      "pechuga de pollo",
+      "arroz",
+      "tomate",
+      "aceite de oliva"
+    ]
   },
   {
-    "title": "Turkey burgers, couscous and cucumber",
+    "id": "basic-2-turkey-burgers-couscous-and-cucumber",
+    "title": "Hamburguesas de pavo, cuscús y pepino",
     "meal": "lunch",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["turkey burger", "couscous", "cucumber", "yogurt"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "hamburguesa de pavo",
+      "cuscús",
+      "pepino",
+      "yogur"
+    ]
   },
   {
-    "title": "Pasta with tomato, tuna and olives",
+    "id": "basic-3-pasta-with-tomato",
+    "title": "Pasta con tomate",
     "meal": "lunch",
     "group": "fish",
-    "note": "Pantry plate",
-    "ingredients": ["pasta", "tomato sauce", "tuna", "olives"]
+    "note": "Plato de despensa",
+    "ingredients": [
+      "pasta",
+      "tomate triturado"
+    ]
   },
   {
-    "title": "Rice bowl with egg, peas and carrots",
+    "id": "basic-4-rice-bowl-with-egg-peas-and-carrots",
+    "title": "Bol de arroz con huevo, guisantes y zanahorias",
     "meal": "lunch",
     "group": "egg",
-    "note": "Simple plate",
-    "ingredients": ["rice", "egg", "peas", "carrots"]
+    "note": "Plato sencillo",
+    "ingredients": [
+      "arroz",
+      "huevo",
+      "guisantes",
+      "zanahorias"
+    ]
   },
   {
-    "title": "Salmon, potatoes and green beans",
+    "id": "basic-5-salmon-potatoes-and-green-beans",
+    "title": "Salmón, patatas y judías verdes",
     "meal": "lunch",
     "group": "fish",
-    "note": "Balanced plate",
-    "ingredients": ["salmon", "potatoes", "green beans", "lemon"]
+    "note": "Plato equilibrado",
+    "ingredients": [
+      "salmón",
+      "patatas",
+      "judías verdes",
+      "limón"
+    ]
   },
   {
-    "title": "Chickpea salad with tomato, egg and tuna",
-    "meal": "lunch",
-    "group": "legume",
-    "note": "No-fuss plate",
-    "ingredients": ["chickpeas", "tomato", "egg", "tuna"]
-  },
-  {
-    "title": "Beef strips, peppers and rice",
-    "meal": "lunch",
-    "group": "meat",
-    "note": "Simple plate",
-    "ingredients": ["beef strips", "peppers", "rice", "olive oil"]
-  },
-  {
-    "title": "Lentil salad with feta and cucumber",
-    "meal": "lunch",
-    "group": "legume",
-    "note": "Balanced plate",
-    "ingredients": ["lentils", "feta", "cucumber", "tomato"]
-  },
-  {
-    "title": "Chicken noodles with peas",
+    "id": "basic-7-beef-strips-peppers-and-rice",
+    "title": "Tiras de ternera con pimientos y arroz",
     "meal": "lunch",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["chicken", "noodles", "peas", "carrots"]
+    "note": "Plato sencillo",
+    "ingredients": [
+      "tiras de ternera",
+      "pimientos",
+      "arroz",
+      "aceite de oliva"
+    ]
   },
   {
-    "title": "Potato omelette with tomato salad",
+    "id": "basic-8-lentil-salad-with-feta-and-cucumber",
+    "title": "Ensalada de lentejas con feta y pepino",
+    "meal": "lunch",
+    "group": "legume",
+    "note": "Plato equilibrado",
+    "ingredients": [
+      "lentejas",
+      "queso feta",
+      "pepino",
+      "tomate"
+    ]
+  },
+  {
+    "id": "basic-9-chicken-noodles-with-peas",
+    "title": "Fideos con pollo y guisantes",
+    "meal": "lunch",
+    "group": "meat",
+    "note": "Apto para niños",
+    "ingredients": [
+      "pollo",
+      "fideos",
+      "guisantes",
+      "zanahorias"
+    ]
+  },
+  {
+    "id": "basic-10-potato-omelette-with-tomato-salad",
+    "title": "Tortilla de patatas con ensalada de tomate",
     "meal": "lunch",
     "group": "egg",
-    "note": "Simple plate",
-    "ingredients": ["eggs", "potatoes", "tomato", "lettuce"]
+    "note": "Plato sencillo",
+    "ingredients": [
+      "huevos",
+      "patatas",
+      "tomate",
+      "lechuga"
+    ]
   },
   {
-    "title": "Meatballs with pasta and peas",
+    "id": "basic-11-meatballs",
+    "title": "Albóndigas con tomate",
     "meal": "lunch",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["meatballs", "pasta", "peas", "tomato sauce"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "albóndigas",
+      "tomate triturado"
+    ]
   },
   {
-    "title": "White fish, sweet potato and broccoli",
+    "id": "basic-12-white-fish-sweet-potato-and-broccoli",
+    "title": "Pescado blanco, batata y brócoli",
     "meal": "lunch",
     "group": "fish",
-    "note": "Balanced plate",
-    "ingredients": ["white fish", "sweet potato", "broccoli", "olive oil"]
+    "note": "Plato equilibrado",
+    "ingredients": [
+      "pescado blanco",
+      "batata",
+      "brócoli",
+      "aceite de oliva"
+    ]
   },
   {
-    "title": "Vegetable rice with egg and peas",
+    "id": "basic-13-vegetable-rice-with-egg-and-peas",
+    "title": "Arroz con verduras, huevo y guisantes",
     "meal": "lunch",
     "group": "veg",
-    "note": "Kid friendly",
-    "ingredients": ["rice", "egg", "peas", "carrots"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "arroz",
+      "huevo",
+      "guisantes",
+      "zanahorias"
+    ]
   },
   {
-    "title": "Pesto pasta with mozzarella and tomatoes",
+    "id": "basic-14-pesto-pasta-with-mozzarella-and-tomatoes",
+    "title": "Pasta al pesto con mozzarella y tomates",
     "meal": "lunch",
     "group": "grain",
-    "note": "No-fuss plate",
-    "ingredients": ["pasta", "pesto", "mozzarella", "tomatoes"]
+    "note": "Plato sin complicaciones",
+    "ingredients": [
+      "pasta",
+      "pesto",
+      "mozzarella",
+      "tomates"
+    ]
   },
   {
-    "title": "Bean, rice and avocado bowl",
+    "id": "basic-15-bean-rice-and-avocado-bowl",
+    "title": "Bol de alubias, arroz y aguacate",
     "meal": "lunch",
     "group": "legume",
-    "note": "No-fuss plate",
-    "ingredients": ["beans", "rice", "avocado", "corn"]
+    "note": "Plato sin complicaciones",
+    "ingredients": [
+      "alubias",
+      "arroz",
+      "aguacate",
+      "maíz"
+    ]
   },
   {
-    "title": "Couscous with chicken and roasted vegetables",
+    "id": "basic-16-couscous-with-chicken-and-roasted-vegetables",
+    "title": "Cuscús con pollo y verduras asadas",
     "meal": "lunch",
     "group": "meat",
-    "note": "Balanced plate",
-    "ingredients": ["couscous", "chicken", "zucchini", "carrot"]
+    "note": "Plato equilibrado",
+    "ingredients": [
+      "cuscús",
+      "pollo",
+      "calabacín",
+      "zanahoria"
+    ]
   },
   {
-    "title": "Macaroni with ham, peas and cheese",
+    "id": "basic-17-macaroni-with-ham-peas-and-cheese",
+    "title": "Macarrones con jamón, guisantes y queso",
     "meal": "lunch",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["macaroni", "ham", "peas", "cheese"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "macarrones",
+      "jamón",
+      "guisantes",
+      "queso"
+    ]
   },
   {
-    "title": "Omelette with salad and bread",
+    "id": "basic-18-omelette-with-salad-and-bread",
+    "title": "Tortilla francesa con ensalada y pan",
     "meal": "dinner",
     "group": "egg",
-    "note": "Quick dinner",
-    "ingredients": ["eggs", "lettuce", "tomato", "bread"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "huevos",
+      "lechuga",
+      "tomate",
+      "pan"
+    ]
   },
   {
-    "title": "Toast with tuna, tomato and avocado",
+    "id": "basic-19-toast-with-tuna-tomato-and-avocado",
+    "title": "Tostada con atún, tomate y aguacate",
     "meal": "dinner",
     "group": "fish",
-    "note": "Quick dinner",
-    "ingredients": ["bread", "tuna", "tomato", "avocado"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "pan",
+      "atún",
+      "tomate",
+      "aguacate"
+    ]
   },
   {
-    "title": "Greek yogurt bowl with fruit and nuts",
+    "id": "basic-20-greek-yogurt-bowl-with-fruit-and-nuts",
+    "title": "Bol de yogur griego con fruta y frutos secos",
     "meal": "dinner",
     "group": "light",
-    "note": "Very light",
-    "ingredients": ["Greek yogurt", "banana", "berries", "nuts"]
+    "note": "Muy ligero",
+    "ingredients": [
+      "yogur griego",
+      "plátano",
+      "frutos rojos",
+      "frutos secos"
+    ]
   },
   {
-    "title": "Hummus toast with cucumber and boiled egg",
+    "id": "basic-21-hummus-toast-with-cucumber-and-boiled-egg",
+    "title": "Tostada de humus con pepino y huevo cocido",
     "meal": "dinner",
     "group": "legume",
-    "note": "Quick dinner",
-    "ingredients": ["bread", "hummus", "cucumber", "egg"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "pan",
+      "humus",
+      "pepino",
+      "huevo"
+    ]
   },
   {
-    "title": "Vegetable soup with grilled cheese toast",
+    "id": "basic-22-vegetable-soup-with-grilled-cheese-toast",
+    "title": "Sopa de verduras con tostada de queso",
     "meal": "dinner",
     "group": "veg",
-    "note": "Simple dinner",
-    "ingredients": ["vegetable soup", "bread", "cheese", "apple"]
+    "note": "Cena sencilla",
+    "ingredients": [
+      "sopa de verduras",
+      "pan",
+      "queso",
+      "manzana"
+    ]
   },
   {
-    "title": "Chicken salad wrap",
+    "id": "basic-23-chicken-salad-wrap",
+    "title": "Rollito de ensalada de pollo",
     "meal": "dinner",
     "group": "meat",
-    "note": "Quick dinner",
-    "ingredients": ["wrap", "chicken", "lettuce", "yogurt sauce"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "tortilla de trigo",
+      "pollo",
+      "lechuga",
+      "salsa de yogur"
+    ]
   },
   {
-    "title": "Tomato mozzarella toast with side salad",
+    "id": "basic-24-tomato-mozzarella-toast-with-side-salad",
+    "title": "Tostada de tomate y mozzarella con ensalada",
     "meal": "dinner",
     "group": "veg",
-    "note": "Quick dinner",
-    "ingredients": ["bread", "mozzarella", "tomato", "lettuce"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "pan",
+      "mozzarella",
+      "tomate",
+      "lechuga"
+    ]
   },
   {
-    "title": "Scrambled eggs with mushrooms and toast",
+    "id": "basic-25-scrambled-eggs-with-mushrooms-and-toast",
+    "title": "Huevos revueltos con champiñones y tostada",
     "meal": "dinner",
     "group": "egg",
-    "note": "Quick dinner",
-    "ingredients": ["eggs", "mushrooms", "bread", "fruit"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "huevos",
+      "champiñones",
+      "pan",
+      "fruta"
+    ]
   },
   {
-    "title": "Quesadilla with cheese, chicken and corn",
+    "id": "basic-26-quesadilla-with-cheese-chicken-and-corn",
+    "title": "Quesadilla de queso, pollo y maíz",
     "meal": "dinner",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["tortilla", "cheese", "chicken", "corn"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "tortilla de trigo",
+      "queso",
+      "pollo",
+      "maíz"
+    ]
   },
   {
-    "title": "Mini pizzas with tomato, cheese and ham",
+    "id": "basic-27-mini-pizzas-with-tomato-cheese-and-ham",
+    "title": "Minipizzas de tomate, queso y jamón",
     "meal": "dinner",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["bread", "tomato sauce", "cheese", "ham"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "pan",
+      "salsa de tomate",
+      "queso",
+      "jamón"
+    ]
   },
   {
-    "title": "Fish fingers with peas and potato wedges",
+    "id": "basic-28-fish-fingers-with-peas-and-potato-wedges",
+    "title": "Varitas de pescado con guisantes y patatas gajo",
     "meal": "dinner",
     "group": "fish",
-    "note": "Kid friendly",
-    "ingredients": ["fish fingers", "peas", "potatoes", "lemon"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "varitas de pescado",
+      "guisantes",
+      "patatas",
+      "limón"
+    ]
   },
   {
-    "title": "Avocado egg toast with cherry tomatoes",
+    "id": "basic-29-avocado-egg-toast-with-cherry-tomatoes",
+    "title": "Tostada de aguacate y huevo con tomates cherry",
     "meal": "dinner",
     "group": "egg",
-    "note": "Quick dinner",
-    "ingredients": ["bread", "avocado", "egg", "cherry tomatoes"]
+    "note": "Cena rápida",
+    "ingredients": [
+      "pan",
+      "aguacate",
+      "huevo",
+      "tomates cherry"
+    ]
   },
   {
-    "title": "Bean and cheese tortilla with tomato salad",
+    "id": "basic-30-bean-and-cheese-tortilla-with-tomato-salad",
+    "title": "Tortilla de alubias y queso con ensalada de tomate",
     "meal": "dinner",
     "group": "legume",
-    "note": "Simple dinner",
-    "ingredients": ["tortilla", "beans", "cheese", "tomato"]
+    "note": "Cena sencilla",
+    "ingredients": [
+      "tortilla de trigo",
+      "alubias",
+      "queso",
+      "tomate"
+    ]
   },
   {
-    "title": "Turkey and cheese sandwich with carrot sticks",
+    "id": "basic-31-turkey-and-cheese-sandwich-with-carrot-sticks",
+    "title": "Sándwich de pavo y queso con bastones de zanahoria",
     "meal": "dinner",
     "group": "meat",
-    "note": "Kid friendly",
-    "ingredients": ["bread", "turkey", "cheese", "carrots"]
+    "note": "Apto para niños",
+    "ingredients": [
+      "pan",
+      "pavo",
+      "queso",
+      "zanahorias"
+    ]
   },
+
   {
-    "title": "Pasta salad with egg, corn and tomato",
-    "meal": "dinner",
-    "group": "egg",
-    "note": "No-fuss plate",
-    "ingredients": ["pasta", "egg", "corn", "tomato"]
-  },
-  {
-    "title": "Cottage cheese bowl with crackers and fruit",
+    "id": "basic-33-cottage-cheese-bowl-with-crackers-and-fruit",
+    "title": "Bol de requesón con galletas saladas y fruta",
     "meal": "dinner",
     "group": "light",
-    "note": "Very light",
-    "ingredients": ["cottage cheese", "crackers", "apple", "cucumber"]
+    "note": "Muy ligero",
+    "ingredients": [
+      "requesón",
+      "galletas saladas",
+      "manzana",
+      "pepino"
+    ]
   }
 ]

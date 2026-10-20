@@ -60,99 +60,137 @@ document.getElementById('btn-planner').addEventListener('click', () => {
 const plannerListEl = document.getElementById('planner-list');
 const plannerQuickListEl = document.getElementById('planner-quick-list');
 const plannerSelectedEl = document.getElementById('planner-selected');
-const plannerRecipeSelectEl = document.getElementById('planner-recipe-select');
 const plannerReadyEl = document.getElementById('planner-order-ready');
 const plannerReadyCardEl = document.getElementById('planner-ready-card');
 const plannerReadyStatusEl = document.getElementById('planner-ready-status');
 const plannerCountEl = document.getElementById('planner-count');
 const plannerRequestsListEl = document.getElementById('planner-requests-list');
 const plannerRecurringListEl = document.getElementById('planner-recurring-list');
-const plannerJumpButtons = [...document.querySelectorAll('[data-planner-jump]')];
-const plannerScrollContentEl = document.querySelector('.planner-scroll-content');
+const plannerShoppingListEl = document.getElementById('planner-shopping-list');
+const plannerPantryListEl = document.getElementById('planner-pantry-list');
+const plannerOtherShoppingListEl = document.getElementById('planner-other-shopping-list');
+const plannerRulesListEl = document.getElementById('planner-rules-list');
+const plannerSearchEl = document.getElementById('planner-search');
+const plannerTabs = [...document.querySelectorAll('[data-planner-tab]')];
+const plannerTabPanels = [...document.querySelectorAll('[data-planner-panel]')];
+const plannerFilters = [...document.querySelectorAll('[data-planner-filter]')];
+const plannerBrowserPanels = [...document.querySelectorAll('[data-planner-browser]')];
 let weeklyPlanState = {
     selectedRecipes: [],
     selectedQuickMeals: [],
+    excludedIngredients: [],
     selected: [],
+    shoppingItems: [],
+    pantryItems: [],
+    otherShoppingItems: [],
     requests: [],
     recurringItems: [],
     orderReady: false,
     ingredientCount: 0,
+    shoppingItemCount: 0,
 };
 let allQuickMeals = [];
 let allRecurringItems = [];
-let plannerSuggestionOffset = 0;
+let allShoppingRules = [];
+let activePlannerTab = 'menu';
+let activePlannerFilter = 'mains';
 
-plannerJumpButtons.forEach((button, index) => {
-    if (index === 0) button.classList.add('is-active');
-    button.addEventListener('click', () => {
-        const target = document.getElementById(button.dataset.plannerJump);
-        if (!target) return;
-        plannerJumpButtons.forEach(item => item.classList.toggle('is-active', item === button));
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function normalizePlannerIngredient(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+}
+
+function setPlannerTab(tab) {
+    activePlannerTab = tab;
+    plannerTabs.forEach(button => button.classList.toggle('is-active', button.dataset.plannerTab === tab));
+    plannerTabPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.plannerPanel === tab));
+    const activePanel = plannerTabPanels.find(panel => panel.dataset.plannerPanel === tab);
+    if (activePanel) activePanel.scrollTop = 0;
+}
+
+function setPlannerFilter(filter) {
+    activePlannerFilter = filter;
+    plannerFilters.forEach(button => button.classList.toggle('is-active', button.dataset.plannerFilter === filter));
+    plannerBrowserPanels.forEach(panel => {
+        const visible = filter === 'quick'
+            ? panel.dataset.plannerBrowser === 'quick'
+            : filter === 'ideas'
+                ? panel.dataset.plannerBrowser === 'ideas'
+                : panel.dataset.plannerBrowser === 'recipes';
+        panel.classList.toggle('is-active', visible);
     });
-});
+    plannerSearchEl.classList.toggle('is-hidden', filter === 'ideas');
+    renderWeeklyPlanner();
+}
 
-plannerScrollContentEl.addEventListener('scroll', () => {
-    const contentTop = plannerScrollContentEl.getBoundingClientRect().top;
-    let activeButton = plannerJumpButtons[0];
-    plannerJumpButtons.forEach(button => {
-        const target = document.getElementById(button.dataset.plannerJump);
-        if (target && target.getBoundingClientRect().top <= contentTop + 36) activeButton = button;
-    });
-    plannerJumpButtons.forEach(button => button.classList.toggle('is-active', button === activeButton));
-}, { passive: true });
-
-function rotatePlannerItems(items, count) {
-    if (!items.length) return [];
-    const offset = ((count % items.length) + items.length) % items.length;
-    return items.slice(offset).concat(items.slice(0, offset));
+function plannerCategoryLabel(category) {
+    const labels = {
+        mains: 'Plato principal',
+        starters: 'Entrante',
+        sides: 'Guarnición',
+        'sauces-basics': 'Salsa o básico',
+        desserts: 'Postre',
+        drinks: 'Bebida',
+        uncategorized: 'Receta',
+    };
+    return labels[category] || 'Receta';
 }
 
 function renderPlannerSuggestion(recipe) {
+    const selected = weeklyPlanState.selectedRecipes.includes(recipe.slug);
     return `
-        <article class="planner-recipe-card">
+        <article class="planner-recipe-card ${selected ? 'is-selected' : ''}">
             <a class="planner-recipe-image ${recipe.image ? '' : 'planner-recipe-image-empty'}" href="/?recipe=${encodeURIComponent(recipe.slug)}" target="_blank" rel="noopener">
-                ${recipe.image ? `<img src="${recipe.image}" alt="">` : '<span>🍲</span>'}
+                ${recipe.image ? `<img src="${recipe.image}" alt="">` : '<span>foto de la receta</span>'}
             </a>
             <div class="planner-recipe-body">
                 <a class="planner-recipe-title" href="/?recipe=${encodeURIComponent(recipe.slug)}" target="_blank" rel="noopener">${escapeHtml(recipe.title)}</a>
-                <button type="button" class="planner-add-btn" data-add-recipe="${escapeHtml(recipe.slug)}">Add</button>
+                <span class="planner-recipe-meta">${plannerCategoryLabel(recipe.category)}</span>
+                <button type="button" class="planner-add-btn ${selected ? 'is-selected' : ''}" data-toggle-recipe="${escapeHtml(recipe.slug)}">
+                    ${selected ? '✓ En el menú' : 'Añadir'}
+                </button>
             </div>
         </article>
     `;
 }
 
 function renderQuickMealSuggestion(meal) {
+    const selected = weeklyPlanState.selectedQuickMeals.includes(meal.id);
     return `
-        <article class="planner-quick-card">
+        <article class="planner-quick-card ${selected ? 'is-selected' : ''}">
             <div>
                 <strong>${escapeHtml(meal.title)}</strong>
-                <span>${escapeHtml(meal.note || 'Quick meal')}</span>
+                <span>${escapeHtml(meal.note || 'Plato rápido')}</span>
                 <small>${meal.ingredients.map(escapeHtml).join(' · ')}</small>
             </div>
-            <button type="button" class="planner-add-btn" data-add-quick="${escapeHtml(meal.id)}">Add</button>
+            <button type="button" class="planner-add-btn ${selected ? 'is-selected' : ''}" data-toggle-quick="${escapeHtml(meal.id)}">
+                ${selected ? '✓ En el menú' : 'Añadir'}
+            </button>
         </article>
     `;
 }
 
 function renderSelectedMeal(meal) {
     const ingredients = Array.isArray(meal.ingredients) ? meal.ingredients : [];
-    const title = meal.type === 'recipe'
-        ? `<a href="/?recipe=${encodeURIComponent(meal.slug)}" target="_blank" rel="noopener">${escapeHtml(meal.title)}</a>`
+    const detailUrl = meal.type === 'recipe' ? `/?recipe=${encodeURIComponent(meal.slug)}` : '';
+    const title = detailUrl
+        ? `<a href="${detailUrl}" target="_blank" rel="noopener">${escapeHtml(meal.title)}</a>`
         : `<strong>${escapeHtml(meal.title)}</strong>`;
     return `
         <article class="planner-selected-card">
+            ${meal.image
+                ? `<a class="planner-selected-image" href="${detailUrl}" target="_blank" rel="noopener"><img src="${meal.image}" alt=""></a>`
+                : '<div class="planner-selected-image planner-recipe-image-empty"><span>foto</span></div>'}
             <div class="planner-selected-main">
                 ${title}
-                <span>${meal.type === 'quick' ? 'Quick meal · ' : ''}${ingredients.length} ingredient${ingredients.length === 1 ? '' : 's'}</span>
+                <span>${meal.type === 'quick' ? 'Plato rápido' : plannerCategoryLabel(meal.category)} · ${ingredients.length} ingrediente${ingredients.length === 1 ? '' : 's'}</span>
             </div>
-            <button type="button" class="planner-remove-btn" data-remove-type="${meal.type}" data-remove-id="${escapeHtml(meal.id)}" aria-label="Remove meal">×</button>
             ${ingredients.length ? `
                 <details class="planner-ingredients">
-                    <summary>Ingredients added to shopping</summary>
+                    <summary>Ingredientes</summary>
                     <ul>${ingredients.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
                 </details>
-            ` : '<p class="planner-no-ingredients">No ingredient list found in this recipe.</p>'}
+            ` : '<span class="planner-no-ingredients">Sin ingredientes</span>'}
+            <button type="button" class="planner-remove-btn" data-remove-type="${meal.type}" data-remove-id="${escapeHtml(meal.id)}" aria-label="Quitar ${escapeHtml(meal.title)}">×</button>
         </article>
     `;
 }
@@ -183,35 +221,141 @@ function renderPlannerRequest(request) {
 
 function renderRecurringItem(item) {
     return `
-        <article class="planner-recurring-card">
-            <input type="checkbox" data-recurring-field="active" data-recurring-id="${escapeHtml(item.id)}" ${item.active ? 'checked' : ''} aria-label="Include ${escapeHtml(item.text)}">
-            <input type="text" data-recurring-field="text" data-recurring-id="${escapeHtml(item.id)}" value="${escapeHtml(item.text)}" maxlength="160" aria-label="Recurring item name">
-            <label>
-                <span>Qty</span>
-                <input type="number" data-recurring-field="quantity" data-recurring-id="${escapeHtml(item.id)}" value="${item.quantity}" min="1" max="99" aria-label="Quantity for ${escapeHtml(item.text)}">
+        <article class="planner-recurring-card ${item.active ? '' : 'is-off'}">
+            <label class="planner-recurring-toggle" aria-label="Include ${escapeHtml(item.text)} every week">
+                <input type="checkbox" data-recurring-field="active" data-recurring-id="${escapeHtml(item.id)}" ${item.active ? 'checked' : ''}>
+                <span aria-hidden="true"></span>
             </label>
-            <button type="button" class="planner-remove-btn" data-remove-recurring="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.text)}">×</button>
+            <input class="planner-recurring-name" type="text" data-recurring-field="text" data-recurring-id="${escapeHtml(item.id)}" value="${escapeHtml(item.text)}" maxlength="160" aria-label="Recurring item name">
+            <div class="planner-quantity-control">
+                <button type="button" data-adjust-recurring="-1" data-recurring-id="${escapeHtml(item.id)}" aria-label="Decrease quantity">−</button>
+                <input type="number" data-recurring-field="quantity" data-recurring-id="${escapeHtml(item.id)}" value="${item.quantity}" min="1" max="99" aria-label="Quantity for ${escapeHtml(item.text)}">
+                <button type="button" data-adjust-recurring="1" data-recurring-id="${escapeHtml(item.id)}" aria-label="Increase quantity">＋</button>
+            </div>
+            <button type="button" class="planner-remove-recurring" data-remove-recurring="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.text)}">×</button>
         </article>
     `;
 }
 
+function renderShoppingRule(item) {
+    return `
+        <article class="planner-rule-card ${item.active ? '' : 'is-off'}">
+            <label class="planner-recurring-toggle planner-rule-toggle" aria-label="Use rule for ${escapeHtml(item.product)}">
+                <input type="checkbox" data-shopping-rule-field="active" data-shopping-rule-id="${escapeHtml(item.id)}" ${item.active ? 'checked' : ''}>
+                <span aria-hidden="true"></span>
+            </label>
+            <label class="planner-rule-field">
+                <span>Product</span>
+                <input type="text" data-shopping-rule-field="product" data-shopping-rule-id="${escapeHtml(item.id)}" value="${escapeHtml(item.product)}" maxlength="120">
+            </label>
+            <label class="planner-rule-field planner-rule-instruction">
+                <span>Shopping instruction</span>
+                <textarea data-shopping-rule-field="rule" data-shopping-rule-id="${escapeHtml(item.id)}" rows="2" maxlength="600">${escapeHtml(item.rule)}</textarea>
+            </label>
+            <button type="button" class="planner-rule-remove" data-remove-shopping-rule="${escapeHtml(item.id)}" aria-label="Remove rule for ${escapeHtml(item.product)}">×</button>
+        </article>
+    `;
+}
+
+function renderPlannerShoppingItem(item) {
+    const key = item.key || normalizePlannerIngredient(item.text);
+    const source = Array.isArray(item.mealTitles) && item.mealTitles.length
+        ? item.mealTitles.join(' · ')
+        : 'Selected meals';
+    const ingredientName = item.ingredientName || item.text;
+    const quantityParts = [];
+    if (item.quantityText) quantityParts.push(item.quantityText);
+    if (item.missingQuantityCount && item.combined) {
+        quantityParts.push(`${item.missingQuantityCount} ${item.missingQuantityCount === 1
+            ? 'receta sin cantidad'
+            : 'recetas sin cantidad'}`);
+    }
+    const variants = Array.isArray(item.variantDetails) ? item.variantDetails : [];
+    const recipeBreakdown = item.combined && variants.length
+        ? `
+            <details class="planner-ingredient-sources">
+                <summary>${variants.length} ${variants.length === 1 ? 'ingrediente original' : 'ingredientes originales'}</summary>
+                <ul>
+                    ${variants.map(variant => `
+                        <li>
+                            <span>${escapeHtml(variant.text)}</span>
+                            <small>${escapeHtml(variant.mealTitle)}</small>
+                        </li>
+                    `).join('')}
+                </ul>
+            </details>
+        `
+        : '';
+    return `
+        <article class="planner-shopping-item planner-meal-shopping-item ${item.included ? '' : 'is-excluded'} ${item.missingQuantityCount && item.combined ? 'has-missing-quantity' : ''}">
+            <label class="planner-shopping-toggle">
+                <input type="checkbox" data-plan-ingredient="${escapeHtml(key)}" ${item.included ? 'checked' : ''}>
+                <span class="planner-shopping-check" aria-hidden="true">✓</span>
+                <span class="planner-shopping-name">
+                    <strong>${escapeHtml(ingredientName)}</strong>
+                    ${quantityParts.length ? `<span>${escapeHtml(quantityParts.join(' · '))}</span>` : ''}
+                </span>
+            </label>
+            <div class="planner-shopping-context">
+                <small>${escapeHtml(source)}</small>
+                ${recipeBreakdown}
+            </div>
+            <button type="button" class="planner-pantry-add" data-add-pantry="${escapeHtml(key)}">Always at home</button>
+        </article>
+    `;
+}
+
+function renderPantryItem(item) {
+    const source = Array.isArray(item.mealTitles) && item.mealTitles.length
+        ? `Used by ${item.mealTitles.join(' · ')}`
+        : item.rule === 'spices' ? 'Covered by Spices & dried herbs' : 'Saved for future meal plans';
+    return `
+        <article class="planner-pantry-item">
+            <span class="planner-pantry-icon" aria-hidden="true">✓</span>
+            <div>
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${escapeHtml(source)}</small>
+            </div>
+            <button type="button" data-remove-pantry="${escapeHtml(item.key)}">Include again</button>
+        </article>
+    `;
+}
+
+function renderOtherShoppingItem(item) {
+    return `
+        <label class="planner-shopping-item ${item.included ? '' : 'is-excluded'}">
+            <input type="checkbox" data-other-shopping-id="${escapeHtml(item.id)}" ${item.included ? 'checked' : ''}>
+            <span class="planner-shopping-check" aria-hidden="true">✓</span>
+            <span class="planner-shopping-name">${escapeHtml(item.text)}</span>
+            <small>Shopping list</small>
+        </label>
+    `;
+}
+
 function renderWeeklyPlanner() {
-    const selectedRecipes = new Set(weeklyPlanState.selectedRecipes);
-    const selectedQuickMeals = new Set(weeklyPlanState.selectedQuickMeals);
-    const mains = allRecipes.filter(recipe => recipe.category === 'mains' && !selectedRecipes.has(recipe.slug));
-    const suggestions = rotatePlannerItems(mains, plannerSuggestionOffset).slice(0, 8);
-    const quickSuggestions = rotatePlannerItems(
-        allQuickMeals.filter(meal => !selectedQuickMeals.has(meal.id)),
-        plannerSuggestionOffset,
-    ).slice(0, 6);
+    const plannerScreen = document.getElementById('planner-screen');
+    plannerScreen.scrollTop = 0;
+    const query = plannerSearchEl.value.trim().toLocaleLowerCase('es');
+    let visibleRecipes = activePlannerFilter === 'mains'
+        ? allRecipes.filter(recipe => recipe.category === 'mains')
+        : allRecipes;
+    if (query) {
+        visibleRecipes = visibleRecipes.filter(recipe => [recipe.title, recipe.altName, recipe.category]
+            .filter(Boolean)
+            .some(value => String(value).toLocaleLowerCase('es').includes(query)));
+    }
 
-    plannerListEl.innerHTML = suggestions.length
-        ? suggestions.map(renderPlannerSuggestion).join('')
-        : '<p class="recipes-empty">All available main courses are already selected.</p>';
+    plannerListEl.innerHTML = visibleRecipes.length
+        ? visibleRecipes.map(renderPlannerSuggestion).join('')
+        : '<p class="planner-empty-selection">Ninguna receta coincide con la búsqueda.</p>';
 
-    plannerQuickListEl.innerHTML = quickSuggestions.length
-        ? quickSuggestions.map(renderQuickMealSuggestion).join('')
-        : '<p class="recipes-empty">All quick meals are already selected.</p>';
+    const visibleQuickMeals = query
+        ? allQuickMeals.filter(meal => [meal.title, meal.note, ...(meal.ingredients || [])]
+            .some(value => String(value || '').toLocaleLowerCase('es').includes(query)))
+        : allQuickMeals;
+    plannerQuickListEl.innerHTML = visibleQuickMeals.length
+        ? visibleQuickMeals.map(renderQuickMealSuggestion).join('')
+        : '<p class="planner-empty-selection">Ningún plato rápido coincide con la búsqueda.</p>';
 
     plannerSelectedEl.innerHTML = weeklyPlanState.selected.length
         ? weeklyPlanState.selected.map(renderSelectedMeal).join('')
@@ -225,29 +369,60 @@ function renderWeeklyPlanner() {
         ? allRecurringItems.map(renderRecurringItem).join('')
         : '<p class="planner-empty-selection">No recurring items yet.</p>';
 
-    const remainingRecipes = allRecipes.filter(recipe => !selectedRecipes.has(recipe.slug));
-    plannerRecipeSelectEl.innerHTML = '<option value="">Choose any recipe…</option>' + remainingRecipes
-        .map(recipe => `<option value="${escapeHtml(recipe.slug)}">${escapeHtml(recipe.title)} · ${escapeHtml(recipe.category)}</option>`)
-        .join('');
-    plannerRecipeSelectEl.disabled = remainingRecipes.length === 0;
+    const allMealShoppingItems = Array.isArray(weeklyPlanState.shoppingItems) ? weeklyPlanState.shoppingItems : [];
+    const shoppingItems = allMealShoppingItems.filter(item => !item.pantry);
+    plannerShoppingListEl.innerHTML = shoppingItems.length
+        ? shoppingItems.map(renderPlannerShoppingItem).join('')
+        : `<p class="planner-empty-selection">${allMealShoppingItems.length
+            ? 'All meal ingredients are covered by Always at home.'
+            : 'Add meals to build the shopping list.'}</p>`;
+
+    document.getElementById('planner-spice-rule').checked = weeklyPlanState.spiceRule?.enabled === true;
+    document.getElementById('planner-spice-exceptions').innerHTML = (weeklyPlanState.spiceRule?.exceptions || [])
+        .map(key => `<article class="planner-pantry-item"><span aria-hidden="true">↪</span><div><strong>${escapeHtml(key)}</strong><small>Exception: include in shopping when requested</small></div><button type="button" data-restore-spice="${escapeHtml(key)}">Always at home</button></article>`).join('');
+
+    const pantryItems = Array.isArray(weeklyPlanState.pantryItems) ? weeklyPlanState.pantryItems : [];
+    plannerPantryListEl.innerHTML = pantryItems.length
+        ? pantryItems.map(renderPantryItem).join('')
+        : '<p class="planner-empty-selection">No permanently excluded meal ingredients.</p>';
+
+    const otherShoppingItems = Array.isArray(weeklyPlanState.otherShoppingItems)
+        ? weeklyPlanState.otherShoppingItems
+        : [];
+    plannerOtherShoppingListEl.innerHTML = otherShoppingItems.length
+        ? otherShoppingItems.map(renderOtherShoppingItem).join('')
+        : '<p class="planner-empty-selection">No unchecked items in the shopping list.</p>';
+
+    plannerRulesListEl.innerHTML = allShoppingRules.length
+        ? allShoppingRules.map(renderShoppingRule).join('')
+        : '<p class="planner-empty-selection">No shopping rules yet.</p>';
 
     plannerReadyEl.checked = weeklyPlanState.orderReady;
     const hasOrderContent = weeklyPlanState.selected.length > 0
         || weeklyPlanState.requests.length > 0
-        || allRecurringItems.some(item => item.active);
+        || allRecurringItems.some(item => item.active)
+        || otherShoppingItems.some(item => item.included);
     plannerReadyEl.disabled = !hasOrderContent;
     plannerReadyCardEl.classList.toggle('is-ready', weeklyPlanState.orderReady);
     plannerReadyStatusEl.textContent = weeklyPlanState.orderReady
-        ? 'Ready: the scheduler may prepare this order.'
-        : 'Waiting: the scheduler will leave the basket unchanged.';
-    plannerCountEl.textContent = `${weeklyPlanState.selected.length} meal${weeklyPlanState.selected.length === 1 ? '' : 's'} · ${weeklyPlanState.ingredientCount} shopping item${weeklyPlanState.ingredientCount === 1 ? '' : 's'}`;
+        ? 'Ready for the shopping agent'
+        : 'Until then, the basket stays unchanged';
+
+    const mealCount = weeklyPlanState.selected.length;
+    const shoppingCount = weeklyPlanState.shoppingItemCount ?? weeklyPlanState.ingredientCount;
+    plannerCountEl.textContent = `${mealCount} meal${mealCount === 1 ? '' : 's'} · ${shoppingCount} shopping item${shoppingCount === 1 ? '' : 's'}`;
+    document.getElementById('planner-menu-count').textContent = mealCount;
+    document.getElementById('planner-browse-count').textContent = allRecipes.length;
+    document.getElementById('planner-shopping-count').textContent = shoppingCount;
+    document.getElementById('planner-rules-count').textContent = allShoppingRules.filter(item => item.active).length;
+    plannerScreen.scrollTop = 0;
 }
 
-async function saveWeeklyPlan(selectedRecipes, selectedQuickMeals, orderReady, successMessage) {
+async function saveWeeklyPlan(selectedRecipes, selectedQuickMeals, orderReady, successMessage, excludedIngredients = weeklyPlanState.excludedIngredients) {
     const res = await fetch('/api/weekly-plan', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedRecipes, selectedQuickMeals, orderReady }),
+        body: JSON.stringify({ selectedRecipes, selectedQuickMeals, excludedIngredients, orderReady }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not save next week');
@@ -278,23 +453,25 @@ async function changePlannerSelection(type, id, add) {
 }
 
 async function loadWeeklyPlanner() {
-    plannerListEl.innerHTML = '<p class="recipes-empty">Loading next week...</p>';
+    plannerListEl.innerHTML = '<p class="planner-empty-selection">Loading next week…</p>';
     plannerSelectedEl.innerHTML = '';
     try {
-        const [recipesRes, quickMealsRes, planRes, recurringRes] = await Promise.all([
+        const [recipesRes, quickMealsRes, planRes, recurringRes, rulesRes] = await Promise.all([
             fetch('/api/recipes'),
             fetch('/api/quick-meals'),
             fetch('/api/weekly-plan'),
             fetch('/api/recurring-items'),
+            fetch('/api/shopping-rules'),
         ]);
-        if (!recipesRes.ok || !quickMealsRes.ok || !planRes.ok || !recurringRes.ok) throw new Error('Could not load next week');
+        if (!recipesRes.ok || !quickMealsRes.ok || !planRes.ok || !recurringRes.ok || !rulesRes.ok) throw new Error('Could not load next week');
         allRecipes = await recipesRes.json();
         allQuickMeals = await quickMealsRes.json();
         weeklyPlanState = await planRes.json();
         allRecurringItems = await recurringRes.json();
+        allShoppingRules = await rulesRes.json();
         renderWeeklyPlanner();
     } catch (error) {
-        plannerListEl.innerHTML = '<p class="recipes-empty">Could not load the weekly plan.</p>';
+        plannerListEl.innerHTML = '<p class="planner-empty-selection">Could not load the weekly plan.</p>';
         showToast(error.message);
     }
 }
@@ -314,14 +491,56 @@ async function saveRecurringItems(successMessage) {
     if (successMessage) showToast(successMessage);
 }
 
+async function saveShoppingRules(successMessage) {
+    const res = await fetch('/api/shopping-rules', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(allShoppingRules),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not save shopping rules');
+    allShoppingRules = data;
+    weeklyPlanState.orderReady = false;
+    renderWeeklyPlanner();
+    if (successMessage) showToast(successMessage);
+}
+
+async function createPlannerRequest(type, text) {
+    const res = await fetch('/api/weekly-plan/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not save idea');
+    weeklyPlanState = data;
+    if (type === 'recipe-idea' && !data.generationWarning) {
+        const recipesRes = await fetch('/api/recipes');
+        if (recipesRes.ok) allRecipes = await recipesRes.json();
+    }
+    renderWeeklyPlanner();
+    return data;
+}
+
+plannerTabs.forEach(button => button.addEventListener('click', () => setPlannerTab(button.dataset.plannerTab)));
+document.querySelectorAll('[data-open-planner-tab]').forEach(button => {
+    button.addEventListener('click', () => setPlannerTab(button.dataset.openPlannerTab));
+});
+plannerFilters.forEach(button => button.addEventListener('click', () => setPlannerFilter(button.dataset.plannerFilter)));
+plannerSearchEl.addEventListener('input', renderWeeklyPlanner);
+
 plannerListEl.addEventListener('click', event => {
-    const button = event.target.closest('[data-add-recipe]');
-    if (button) changePlannerSelection('recipe', button.dataset.addRecipe, true);
+    const button = event.target.closest('[data-toggle-recipe]');
+    if (!button) return;
+    const id = button.dataset.toggleRecipe;
+    changePlannerSelection('recipe', id, !weeklyPlanState.selectedRecipes.includes(id));
 });
 
 plannerQuickListEl.addEventListener('click', event => {
-    const button = event.target.closest('[data-add-quick]');
-    if (button) changePlannerSelection('quick', button.dataset.addQuick, true);
+    const button = event.target.closest('[data-toggle-quick]');
+    if (!button) return;
+    const id = button.dataset.toggleQuick;
+    changePlannerSelection('quick', id, !weeklyPlanState.selectedQuickMeals.includes(id));
 });
 
 plannerSelectedEl.addEventListener('click', event => {
@@ -329,40 +548,190 @@ plannerSelectedEl.addEventListener('click', event => {
     if (button) changePlannerSelection(button.dataset.removeType, button.dataset.removeId, false);
 });
 
+plannerShoppingListEl.addEventListener('change', async event => {
+    const input = event.target.closest('[data-plan-ingredient]');
+    if (!input) return;
+    const key = input.dataset.planIngredient;
+    const excluded = new Set(weeklyPlanState.excludedIngredients || []);
+    if (input.checked) excluded.delete(key);
+    else excluded.add(key);
+    input.disabled = true;
+    try {
+        await saveWeeklyPlan(
+            weeklyPlanState.selectedRecipes,
+            weeklyPlanState.selectedQuickMeals,
+            false,
+            input.checked ? 'Ingredient included' : 'Ingredient excluded from this order',
+            [...excluded],
+        );
+    } catch (error) {
+        input.checked = !input.checked;
+        input.disabled = false;
+        showToast(error.message);
+    }
+});
+
+plannerShoppingListEl.addEventListener('click', async event => {
+    const button = event.target.closest('[data-add-pantry]');
+    if (!button) return;
+    button.disabled = true;
+    try {
+        const res = await fetch('/api/pantry-items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredient: button.dataset.addPantry }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not update Always at home');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+        showToast('Saved in Always at home · excluded from meal shopping');
+    } catch (error) {
+        button.disabled = false;
+        showToast(error.message);
+    }
+});
+
+document.getElementById('planner-spice-rule').addEventListener('change', async event => {
+    const input = event.target;
+    input.disabled = true;
+    try {
+        const res = await fetch('/api/pantry-spice-rule', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: input.checked }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not save spice rule');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+        showToast('Spice rule saved');
+    } catch (error) {
+        input.checked = !input.checked;
+        showToast(error.message);
+    } finally { input.disabled = false; }
+});
+
+document.getElementById('planner-spice-exceptions').addEventListener('click', async event => {
+    const button = event.target.closest('[data-restore-spice]');
+    if (!button) return;
+    button.disabled = true;
+    try {
+        const res = await fetch('/api/pantry-items', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredient: button.dataset.restoreSpice }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not save spice rule');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+    } catch (error) { button.disabled = false; showToast(error.message); }
+});
+
+document.getElementById('planner-pantry-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const input = document.getElementById('planner-pantry-text');
+    const ingredient = input.value.trim();
+    if (!ingredient || input.disabled) return;
+    const button = form.querySelector('button[type="submit"]');
+    input.disabled = true;
+    button.disabled = true;
+    try {
+        const res = await fetch('/api/pantry-items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ingredient }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not update Always at home');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+        input.value = '';
+        showToast('Saved in Always at home');
+    } catch (error) {
+        showToast(error.message);
+    } finally {
+        input.disabled = false;
+        button.disabled = false;
+        input.focus();
+    }
+});
+
+plannerPantryListEl.addEventListener('click', async event => {
+    const button = event.target.closest('[data-remove-pantry]');
+    if (!button) return;
+    button.disabled = true;
+    try {
+        const res = await fetch(`/api/pantry-items/${encodeURIComponent(button.dataset.removePantry)}`, {
+            method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not update Always at home');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+        showToast('Ingredient will be included in meal shopping again');
+    } catch (error) {
+        button.disabled = false;
+        showToast(error.message);
+    }
+});
+
+plannerOtherShoppingListEl.addEventListener('change', async event => {
+    const input = event.target.closest('[data-other-shopping-id]');
+    if (!input) return;
+    input.disabled = true;
+    try {
+        const res = await fetch(`/api/weekly-plan/shopping-items/${encodeURIComponent(input.dataset.otherShoppingId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ included: input.checked }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not update the order');
+        weeklyPlanState = data;
+        renderWeeklyPlanner();
+        showToast(input.checked ? 'Shopping item included' : 'Shopping item excluded from this order');
+    } catch (error) {
+        input.checked = !input.checked;
+        input.disabled = false;
+        showToast(error.message);
+    }
+});
+
 document.getElementById('planner-request-form').addEventListener('submit', async event => {
     event.preventDefault();
-    const typeInput = document.getElementById('planner-request-type');
+    const typeInput = event.target.querySelector('input[name="planner-request-type"]:checked');
     const textInput = document.getElementById('planner-request-text');
-    const submitButton = event.submitter || event.target.querySelector('button[type="submit"]');
+    const submitButton = document.getElementById('planner-request-submit');
     const originalLabel = submitButton.textContent;
     submitButton.disabled = true;
     submitButton.textContent = typeInput.value === 'recipe-idea' ? 'Generating…' : 'Saving…';
     try {
-        const res = await fetch('/api/weekly-plan/requests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: typeInput.value, text: textInput.value }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not save idea');
-        weeklyPlanState = data;
-        if (typeInput.value === 'recipe-idea' && !data.generationWarning) {
-            const recipesRes = await fetch('/api/recipes');
-            if (recipesRes.ok) allRecipes = await recipesRes.json();
-        }
+        const data = await createPlannerRequest(typeInput.value, textInput.value);
         textInput.value = '';
-        renderWeeklyPlanner();
         showToast(data.generationWarning
             ? 'Idea saved · automatic generation needs a retry'
             : typeInput.value === 'recipe-idea'
                 ? 'Recipe generated, saved and selected'
-                : 'Saved · order needs review');
+                : 'List saved · order needs review');
     } catch (error) {
         showToast(error.message);
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = originalLabel;
     }
+});
+
+document.querySelectorAll('input[name="planner-request-type"]').forEach(input => {
+    input.addEventListener('change', () => {
+        const isRecipe = input.value === 'recipe-idea' && input.checked;
+        if (input.checked) {
+            document.getElementById('planner-request-submit').textContent = isRecipe ? 'Generate recipe' : 'Save list';
+            document.getElementById('planner-request-text').placeholder = isRecipe
+                ? 'e.g. An easy fish pie for four'
+                : 'Paste products or an additional list';
+        }
+    });
 });
 
 plannerRequestsListEl.addEventListener('click', async event => {
@@ -420,6 +789,22 @@ plannerRecurringListEl.addEventListener('change', async event => {
 });
 
 plannerRecurringListEl.addEventListener('click', async event => {
+    const adjust = event.target.closest('[data-adjust-recurring]');
+    if (adjust) {
+        const item = allRecurringItems.find(candidate => candidate.id === adjust.dataset.recurringId);
+        if (!item) return;
+        const previous = item.quantity;
+        item.quantity = Math.max(1, Math.min(99, item.quantity + Number(adjust.dataset.adjustRecurring)));
+        if (item.quantity === previous) return;
+        try {
+            await saveRecurringItems('Quantity saved · order needs review');
+        } catch (error) {
+            item.quantity = previous;
+            renderWeeklyPlanner();
+            showToast(error.message);
+        }
+        return;
+    }
     const button = event.target.closest('[data-remove-recurring]');
     if (!button) return;
     const previous = allRecurringItems;
@@ -433,30 +818,92 @@ plannerRecurringListEl.addEventListener('click', async event => {
     }
 });
 
-document.getElementById('planner-recurring-form').addEventListener('submit', async event => {
-    event.preventDefault();
-    const textInput = document.getElementById('planner-recurring-text');
-    const quantityInput = document.getElementById('planner-recurring-quantity');
-    const previous = allRecurringItems;
-    allRecurringItems = allRecurringItems.concat({
-        id: `recurring-${Date.now()}`,
-        text: textInput.value.trim(),
-        quantity: Number(quantityInput.value),
-        active: true,
-    });
+plannerRulesListEl.addEventListener('change', async event => {
+    const input = event.target.closest('[data-shopping-rule-field]');
+    if (!input) return;
+    const item = allShoppingRules.find(candidate => candidate.id === input.dataset.shoppingRuleId);
+    if (!item) return;
+    const previous = { ...item };
+    if (input.dataset.shoppingRuleField === 'active') item.active = input.checked;
+    if (input.dataset.shoppingRuleField === 'product') item.product = input.value.trim();
+    if (input.dataset.shoppingRuleField === 'rule') item.rule = input.value.trim();
+    input.disabled = true;
     try {
-        await saveRecurringItems('Recurring item added · order needs review');
-        textInput.value = '';
-        quantityInput.value = '1';
+        await saveShoppingRules('Shopping rules saved · order needs review');
     } catch (error) {
-        allRecurringItems = previous;
+        Object.assign(item, previous);
         renderWeeklyPlanner();
         showToast(error.message);
     }
 });
 
-document.getElementById('planner-add-any-btn').addEventListener('click', () => {
-    if (plannerRecipeSelectEl.value) changePlannerSelection('recipe', plannerRecipeSelectEl.value, true);
+plannerRulesListEl.addEventListener('click', async event => {
+    const button = event.target.closest('[data-remove-shopping-rule]');
+    if (!button) return;
+    const previous = allShoppingRules;
+    allShoppingRules = allShoppingRules.filter(item => item.id !== button.dataset.removeShoppingRule);
+    button.disabled = true;
+    try {
+        await saveShoppingRules('Shopping rule removed · order needs review');
+    } catch (error) {
+        allShoppingRules = previous;
+        renderWeeklyPlanner();
+        showToast(error.message);
+    }
+});
+
+document.getElementById('planner-rule-add-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const productInput = document.getElementById('planner-rule-product');
+    const ruleInput = document.getElementById('planner-rule-text');
+    const button = event.submitter;
+    const previous = allShoppingRules;
+    allShoppingRules = allShoppingRules.concat({
+        id: `rule-${crypto.randomUUID()}`,
+        product: productInput.value.trim(),
+        rule: ruleInput.value.trim(),
+        active: true,
+    });
+    button.disabled = true;
+    try {
+        await saveShoppingRules('Shopping rule added · order needs review');
+        productInput.value = '';
+        ruleInput.value = '';
+    } catch (error) {
+        allShoppingRules = previous;
+        renderWeeklyPlanner();
+        showToast(error.message);
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById('planner-extras-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = document.getElementById('planner-extras-text');
+    const text = input.value.trim();
+    if (!text) return;
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+        if (button.value === 'every-week') {
+            allRecurringItems = allRecurringItems.concat({
+                id: `recurring-${Date.now()}`,
+                text,
+                quantity: 1,
+                active: true,
+            });
+            await saveRecurringItems('Added to every week');
+        } else {
+            await createPlannerRequest('extra-list', text);
+            showToast('Added to this week');
+        }
+        input.value = '';
+    } catch (error) {
+        showToast(error.message);
+    } finally {
+        button.disabled = false;
+    }
 });
 
 document.getElementById('planner-new-quick-form').addEventListener('submit', async event => {
@@ -485,16 +932,16 @@ document.getElementById('planner-new-quick-form').addEventListener('submit', asy
 plannerReadyEl.addEventListener('change', async () => {
     const desired = plannerReadyEl.checked;
     try {
-        await saveWeeklyPlan(weeklyPlanState.selectedRecipes, weeklyPlanState.selectedQuickMeals, desired, desired ? 'Order marked ready' : 'Order paused');
+        await saveWeeklyPlan(
+            weeklyPlanState.selectedRecipes,
+            weeklyPlanState.selectedQuickMeals,
+            desired,
+            desired ? 'Order marked ready' : 'Order paused',
+        );
     } catch (error) {
         plannerReadyEl.checked = weeklyPlanState.orderReady;
         showToast(error.message);
     }
-});
-
-document.getElementById('planner-regen-btn').addEventListener('click', () => {
-    plannerSuggestionOffset += 8;
-    renderWeeklyPlanner();
 });
 
 // ===================
@@ -513,7 +960,7 @@ let selectedRecipeCategory = 'all';
 function setupRecipeCategories() {
     recipeCategoriesEl.replaceChildren();
     recipeEditCategoryInput.replaceChildren();
-    const categories = [{ id: 'all', label: 'All recipes' }, ...recipeCategories];
+    const categories = [{ id: 'all', label: 'Todas las recetas' }, ...recipeCategories];
     categories.forEach(category => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -615,12 +1062,12 @@ function renderRecipesList(filterText = '') {
             (r.category || 'uncategorized') === selectedRecipeCategory);
 
     const categoryLabel = recipeCategories.find(c => c.id === selectedRecipeCategory)?.label;
-    const scope = q ? 'Searching all categories' : categoryLabel || 'All recipes';
-    recipesSummaryEl.textContent = `${scope} · ${filtered.length} recipe${filtered.length === 1 ? '' : 's'}`;
+    const scope = q ? 'Buscando en todas las categorías' : categoryLabel || 'Todas las recetas';
+    recipesSummaryEl.textContent = `${scope} · ${filtered.length} receta${filtered.length === 1 ? '' : 's'}`;
 
     if (!filtered.length) {
-        const message = !allRecipes.length ? 'No recipes yet.'
-            : q ? 'No recipes match your search.' : 'No recipes in this category yet. Choose a category in a recipe’s Edit menu.';
+        const message = !allRecipes.length ? 'Todavía no hay recetas.'
+            : q ? 'Ninguna receta coincide con la búsqueda.' : 'Todavía no hay recetas en esta categoría. Puedes elegir otra desde el menú Editar de la receta.';
         const empty = document.createElement('p');
         empty.className = 'recipes-empty';
         empty.textContent = message;
@@ -1278,7 +1725,7 @@ function renderShoppingList() {
     const list = document.getElementById('shopping-list');
     list.innerHTML = '';
 
-    const sorted = [...shoppingItems].sort((a, b) => a.checked - b.checked);
+    const sorted = shoppingItems.filter(item => !item.excluded).sort((a, b) => a.checked - b.checked);
 
     sorted.forEach(item => {
         const el = document.createElement('div');
@@ -1317,7 +1764,7 @@ function addShoppingItem(text) {
     text = text.trim();
     if (!text) return;
     // Add new items to the top of the list
-    shoppingItems.unshift({ text, checked: false });
+    shoppingItems.unshift({ id: `shopping-${crypto.randomUUID()}`, text, checked: false });
     saveShoppingList();
     renderShoppingList();
 }
@@ -1428,7 +1875,7 @@ async function followPrint() {
 
 printButton.addEventListener('click', () => {
     if (!pendingPrint) {
-        const items = shoppingItems.filter(item => !item.checked).map(item => item.text);
+        const items = shoppingItems.filter(item => !item.checked && !item.excluded && !item.orderExcluded).map(item => item.text);
         if (!items.length) { showToast('No unchecked items to print'); return; }
         const key = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
         pendingPrint = { key, items };
@@ -1471,7 +1918,7 @@ function removeShoppingItemsMatchingParts(parts) {
     if (set.size === 0) return;
     const before = shoppingItems.length;
     shoppingItems = shoppingItems.filter((i) => {
-        if (i.checked) return true;
+        if (i.checked || i.excluded || i.orderExcluded) return true;
         return !set.has(i.text.trim().toLowerCase());
     });
     if (shoppingItems.length !== before) {
