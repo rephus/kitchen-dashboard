@@ -75,6 +75,9 @@ const plannerSearchEl = document.getElementById('planner-search');
 const plannerSuggestionsEl = document.getElementById('planner-suggestions-list');
 const suggestionDialog = document.getElementById('planner-suggestion-dialog');
 const suggestionImportBtn = document.getElementById('suggestion-import-btn');
+const suggestionCategoryEl = document.getElementById('planner-suggestion-category');
+const shuffleSuggestionsBtn = document.getElementById('planner-shuffle-suggestions');
+const suggestionsStatusEl = document.getElementById('planner-suggestions-status');
 const plannerTabs = [...document.querySelectorAll('[data-planner-tab]')];
 const plannerTabPanels = [...document.querySelectorAll('[data-planner-panel]')];
 const plannerFilters = [...document.querySelectorAll('[data-planner-filter]')];
@@ -104,15 +107,28 @@ let recipeSuggestions = [];
 let suggestionsStatus = 'loading';
 let activeSuggestion = null;
 let importingSuggestion = false;
+let shufflingSuggestions = false;
+let suggestionNotice = '';
 
 function suggestionMeta(recipe) {
-    return [recipe.source, recipe.totalMinutes ? `${recipe.totalMinutes} min` : '',
+    return [recipe.source, recipe.cuisine, recipe.totalMinutes ? `${recipe.totalMinutes} min` : '',
         recipe.servings ? `${recipe.servings} raciones` : ''].filter(Boolean).join(' · ');
 }
 
 function renderNewRecipeSuggestions() {
+    const category = suggestionCategoryEl.value;
+    const visible = recipeSuggestions.filter(recipe => category === 'any'
+        || recipe.mealCategory === category
+        || (recipe.mealCategories || []).includes(category)
+        || (category === 'Vegetarian' && recipe.mealCategory === 'Vegan'));
+    shuffleSuggestionsBtn.disabled = shufflingSuggestions || suggestionsStatus === 'loading';
+    shuffleSuggestionsBtn.textContent = shufflingSuggestions ? 'Finding recipes…' : '↻ Shuffle';
+    suggestionCategoryEl.disabled = shufflingSuggestions;
+    suggestionsStatusEl.textContent = suggestionNotice || (shufflingSuggestions
+        ? 'Finding different main courses…'
+        : `${visible.length} recipes · Shuffle finds more from TheMealDB`);
     document.getElementById('planner-suggestions-count').textContent = suggestionsStatus === 'loading'
-        ? '…' : suggestionsStatus === 'error' ? '!' : recipeSuggestions.length;
+        ? '…' : suggestionsStatus === 'error' ? '!' : visible.length;
     if (suggestionsStatus === 'loading') {
         plannerSuggestionsEl.innerHTML = '<p class="planner-empty-selection">Loading new recipes…</p>';
         return;
@@ -121,7 +137,7 @@ function renderNewRecipeSuggestions() {
         plannerSuggestionsEl.innerHTML = '<div class="planner-empty-selection">Could not load suggestions. <button type="button" data-retry-suggestions>Try again</button></div>';
         return;
     }
-    plannerSuggestionsEl.innerHTML = recipeSuggestions.length ? recipeSuggestions.map(recipe => `
+    plannerSuggestionsEl.innerHTML = visible.length ? visible.map(recipe => `
         <button type="button" class="planner-suggestion-card" data-open-suggestion="${escapeHtml(recipe.id)}">
             <span class="planner-suggestion-image">
                 ${recipe.imageUrl ? `<img src="${escapeHtml(recipe.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span aria-hidden="true">🍽️</span>'}
@@ -132,22 +148,40 @@ function renderNewRecipeSuggestions() {
                 <span class="planner-suggestion-description">${escapeHtml(recipe.description)}</span>
                 <span class="planner-suggestion-view">View recipe →</span>
             </span>
-        </button>`).join('') : '<p class="planner-empty-selection">You have imported all these suggestions. Find your saved recipes in Browse.</p>';
+        </button>`).join('') : '<p class="planner-empty-selection">No matching recipes in this batch. Use Shuffle to find more, or choose another category.</p>';
 }
 
-async function loadRecipeSuggestions() {
-    suggestionsStatus = 'loading';
+async function loadRecipeSuggestions({ shuffle = false } = {}) {
+    if (shufflingSuggestions) return;
+    suggestionNotice = '';
+    if (shuffle) shufflingSuggestions = true;
+    else suggestionsStatus = 'loading';
     renderNewRecipeSuggestions();
     try {
-        const res = await fetch('/api/recipe-suggestions');
-        if (!res.ok) throw new Error('Could not load suggestions');
-        recipeSuggestions = await res.json();
+        const res = await fetch(shuffle ? '/api/recipe-suggestions/shuffle' : '/api/recipe-suggestions', shuffle ? {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: suggestionCategoryEl.value, excludeIds: recipeSuggestions.map(item => item.id) }),
+        } : undefined);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load suggestions');
+        recipeSuggestions = data;
         suggestionsStatus = 'ready';
+        if (shuffle) suggestionNotice = `${data.length} different recipes from TheMealDB. Open one to learn more about the dish.`;
     } catch (error) {
-        suggestionsStatus = 'error';
+        if (shuffle) suggestionNotice = `${error.message} Your previous suggestions are still here.`;
+        else suggestionsStatus = 'error';
+    } finally {
+        shufflingSuggestions = false;
     }
     renderNewRecipeSuggestions();
 }
+
+shuffleSuggestionsBtn.addEventListener('click', () => loadRecipeSuggestions({ shuffle: true }));
+suggestionCategoryEl.addEventListener('change', () => {
+    suggestionNotice = '';
+    renderNewRecipeSuggestions();
+});
 
 function openRecipeSuggestion(id) {
     if (importingSuggestion) return;

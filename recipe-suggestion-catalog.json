@@ -31,7 +31,10 @@
       "servings": "4",
       "totalTime": "25 min",
       "imageUrl": "https://www.allrecipes.com/thmb/Ni8iOYPQzr78FB1DTsuOT-IH-QM%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/266466pan-seared-chicken-tenderloinPaula4x3-793d471164fa4956a290ce997a529511.jpg"
-    }
+    },
+    "mealCategories": [
+      "Chicken"
+    ]
   },
   {
     "id": "allrecipes-239951",
@@ -61,7 +64,10 @@
       "servings": "4",
       "totalTime": "25 min",
       "imageUrl": "https://www.allrecipes.com/thmb/q1B13yy_13jYV6MSsUENlMG9pOY%3D/0x512/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/AR-239951-baked-turkey-meatballs-dmfs-4x3-ac1e7a02513c45d6b3821de93330c137.jpg"
-    }
+    },
+    "mealCategories": [
+      "Turkey"
+    ]
   },
   {
     "id": "allrecipes-100195",
@@ -92,7 +98,10 @@
       "servings": "4",
       "totalTime": "25 min",
       "imageUrl": "https://www.allrecipes.com/thmb/SW3Xl25YLh4syDfAk794LgZGfsE%3D/0x512/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/100195-BakedHaddock-mfs-4x3-1441-867e32979a2b409bb7445f59f8c170bb.jpg"
-    }
+    },
+    "mealCategories": [
+      "Seafood"
+    ]
   },
   {
     "id": "allrecipes-189058",
@@ -122,7 +131,10 @@
       "servings": "4",
       "totalTime": "15 min",
       "imageUrl": "https://www.allrecipes.com/thmb/LTkaDZu2h-qJHdc1LsGbaG8FOJk%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/AR-189058-super-simple-salmon-ddmfs-4x3-8650d795b3504c0bb360b150ed02a0ac.jpg"
-    }
+    },
+    "mealCategories": [
+      "Seafood"
+    ]
   },
   {
     "id": "allrecipes-22625",
@@ -157,7 +169,10 @@
       "servings": "6",
       "totalTime": "30 min",
       "imageUrl": "https://www.allrecipes.com/thmb/vDlO0P_nkaHwWW00lxnnNAJbofw%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/9112752-5f83b552d7794ee296a8f0c6017ede8a.jpg"
-    }
+    },
+    "mealCategories": [
+      "Beef"
+    ]
   },
   {
     "id": "allrecipes-270050",
@@ -193,7 +208,10 @@
       "servings": "4",
       "totalTime": "20 min",
       "imageUrl": "https://www.allrecipes.com/thmb/6tH7yjrEcuCFFAe3cJR30O1cgHM%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/6283878-fdb9fc20656e49e391c2bc0e4c130747.jpg"
-    }
+    },
+    "mealCategories": [
+      "Pork"
+    ]
   },
   {
     "id": "allrecipes-11951",
@@ -225,7 +243,11 @@
       "servings": "4",
       "totalTime": "20 min",
       "imageUrl": "https://www.allrecipes.com/thmb/VunspjRbgm33P__1GXnneGVWQuI%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/AR-11951-linguine-with-clam-sauce-DDMFS-4x3-b07754d1e48742e8bac1e4edcf96bcba.jpg"
-    }
+    },
+    "mealCategories": [
+      "Pasta",
+      "Seafood"
+    ]
   },
   {
     "id": "allrecipes-21561",
@@ -261,7 +283,10 @@
       "servings": "4",
       "totalTime": "60 min",
       "imageUrl": "https://www.allrecipes.com/thmb/0PqoebDLAPqhJJ6D-xSeK_UpsRM%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/JF_21561_ShrimpFriedRice_4x3_13119-b29fd221132645f39db69b12a2525998.jpg"
-    }
+    },
+    "mealCategories": [
+      "Seafood"
+    ]
   },
   {
     "id": "allrecipes-246702",
@@ -294,7 +319,11 @@
       "servings": "4",
       "totalTime": "45 min",
       "imageUrl": "https://www.allrecipes.com/thmb/ibWJnn7bP3K3EcxT0ErvNrUeQYk%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/4472329-11c6c8ab135f402e8f02c08d1278b30a.jpg"
-    }
+    },
+    "mealCategories": [
+      "Pasta",
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-12072554",
@@ -327,7 +356,11 @@
       "servings": "4",
       "totalTime": "20 min",
       "imageUrl": "https://www.allrecipes.com/thmb/nAAxfGJnNSMsdRvx_tW4gUBCeVg%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/12072554-creamy-spinach-gnocchi-recipe-VAT-Beauty-4x3-ba75abf5c3384d24a8438b92e8573434.jpg"
-    }
+    },
+    "mealCategories": [
+      "Pasta",
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-11710358",
@@ -361,7 +394,10 @@
       "servings": "4",
       "totalTime": "30 min",
       "imageUrl": "https://www.allrecipes.com/thmb/-2UtLScJ9Pg5jf6FNLgwYiH-UMo%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/11710358_Tofu-Broccoli-Stir-Fry_Nicole-Russell_4x3-f01fae8d9eed4f0c9f43f9fc3ebf8cb4.jpg"
-    }
+    },
+    "mealCategories": [
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-85452",
@@ -395,7 +431,10 @@
       "servings": "4",
       "totalTime": "35 min",
       "imageUrl": "https://www.allrecipes.com/thmb/W9az6d0eNPWWsQkVJYCtYSChhww%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/85452-Homemade-Black-Bean-Veggie-Burger-ddmfs-103084-4x3-1-d017a13835c3449996c9e69fc0f74808.jpg"
-    }
+    },
+    "mealCategories": [
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-11955780",
@@ -427,7 +466,11 @@
       "servings": "2",
       "totalTime": "25 min",
       "imageUrl": "https://www.allrecipes.com/thmb/ksBXNBVBsijzkymsF9I2-aNYXB4%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/11955780-quick-veggie-ramen-stir-fry-recipe-PICS-Beauty-4x3-379415054cc6426cbbdf6376f05d6c9f.jpg"
-    }
+    },
+    "mealCategories": [
+      "Pasta",
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-8649317",
@@ -459,7 +502,10 @@
       "servings": "4",
       "totalTime": "60 min",
       "imageUrl": "https://www.allrecipes.com/thmb/AW6JR5CW4t6lFpl-Y7F9dIBhNWc%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/8649317_Sheet-Pan-Black-Pepper-Tofu-and-Broccoli_Maura-Rawlette_4x3-4e77fe608262472ca72a49f388c5cc46.jpg"
-    }
+    },
+    "mealCategories": [
+      "Vegetarian"
+    ]
   },
   {
     "id": "allrecipes-8527854",
@@ -497,6 +543,9 @@
       "servings": "4",
       "totalTime": "35 min",
       "imageUrl": "https://www.allrecipes.com/thmb/V-Kl0XcUiLDfC4w2rufq0hbBryA%3D/1500x0/filters%3Ano_upscale%28%29%3Amax_bytes%28150000%29%3Astrip_icc%28%29%3Aformat%28webp%29/Coconut_Chickpea_Curry-4x3_039-cfa7a55e16434fba8641012f7b03cef8.jpg"
-    }
+    },
+    "mealCategories": [
+      "Vegetarian"
+    ]
   }
 ]

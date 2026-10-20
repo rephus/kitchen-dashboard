@@ -13,6 +13,7 @@ const mealSelectionHistory = createMealSelectionHistory({
 });
 const NORMALIZED_RECIPES_DIR = path.join(__dirname, 'data', 'recipe-ingredients');
 const { createRecipeSuggestions } = require('./recipe-suggestions');
+const { createMealDbProvider } = require('./mealdb-recipes');
 const { handlePrinterAPI } = require('./printer-api');
 const { groupShoppingItems, formatGroupedShoppingList } = require('./shopping-grouper');
 const {
@@ -754,6 +755,8 @@ const recipeSuggestionsService = createRecipeSuggestions({
     recipesDir: RECIPES_DIR,
     listRecipes, readRecipeFile, getRecipe, uniqueRecipeSlug,
     readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
+    cacheFile: path.join(__dirname, 'data', 'recipe-suggestion-cache.json'),
+    fetchSuggestions: createMealDbProvider().fetchSuggestions,
 });
 
 function getRecipeCategory(meta) {
@@ -1736,6 +1739,34 @@ async function handleAPI(req, res, pathname) {
     // Curated main courses; importing saves the recipe and selects it in one operation.
     if (pathname === '/api/recipe-suggestions' && req.method === 'GET') {
         res.end(JSON.stringify(recipeSuggestionsService.listSuggestions()));
+        return;
+    }
+    if (pathname === '/api/recipe-suggestions/shuffle' && req.method === 'POST') {
+        try {
+            let body = '';
+            await new Promise((resolve, reject) => {
+                let oversized = false;
+                req.on('data', chunk => {
+                    if (oversized) return;
+                    body += chunk;
+                    if (body.length > 16000) {
+                        oversized = true;
+                        body = '';
+                        reject(Object.assign(new Error('Recipe request is too large'), { statusCode: 413 }));
+                    }
+                });
+                req.on('end', resolve);
+                req.on('error', reject);
+            });
+            const data = body ? JSON.parse(body) : {};
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                throw Object.assign(new Error('Choose valid recipe discovery options'), { statusCode: 400 });
+            }
+            res.end(JSON.stringify(await recipeSuggestionsService.shuffleSuggestions(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || (error instanceof SyntaxError ? 400 : 502);
+            res.end(JSON.stringify({ error: error.message }));
+        }
         return;
     }
     const suggestionImportMatch = pathname.match(/^\/api\/recipe-suggestions\/([a-z0-9-]+)\/import$/);

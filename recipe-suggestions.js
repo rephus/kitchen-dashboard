@@ -8,7 +8,21 @@ function comparable(value) {
 }
 
 function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeFile,
-    getRecipe, uniqueRecipeSlug, readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan }) {
+    getRecipe, uniqueRecipeSlug, readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
+    cacheFile, fetchSuggestions }) {
+    let suggestions = [...catalog];
+    let shuffling = false;
+    if (cacheFile && fs.existsSync(cacheFile)) {
+        try {
+            const saved = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+            if (saved.version === 1 && Array.isArray(saved.recipes)) {
+                suggestions = [...saved.recipes.filter(item => item.category === 'mains'
+                    && /^mealdb-\d+$/.test(item.id)), ...catalog];
+            }
+        } catch (error) {
+            console.error('Could not load saved recipe suggestions:', error.message);
+        }
+    }
     function findExisting(suggestion) {
         const titles = [suggestion.title, suggestion.originalTitle].map(comparable).filter(Boolean);
         return listRecipes().find(recipe => {
@@ -19,12 +33,57 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
     }
 
     function listSuggestions() {
-        return catalog.filter(item => item.category === 'mains' && !findExisting(item))
-            .slice(0, 20).map(({ recipe, ...suggestion }) => suggestion);
+        const available = [];
+        for (const item of suggestions) {
+            if (item.category === 'mains' && !findExisting(item)) {
+                const { recipe, ...suggestion } = item;
+                available.push(suggestion);
+                if (available.length === 15) break;
+            }
+        }
+        return available;
+    }
+
+    async function shuffleSuggestions({ category = 'any', excludeIds = [] } = {}) {
+        if (!Array.isArray(excludeIds) || excludeIds.length > 100
+            || excludeIds.some(id => typeof id !== 'string' || !/^[a-z0-9-]{1,100}$/.test(id))) {
+            throw Object.assign(new Error('Invalid recipe exclusions'), { statusCode: 400 });
+        }
+        if (!fetchSuggestions) throw new Error('Recipe discovery is unavailable');
+        if (shuffling) throw Object.assign(new Error('A new recipe batch is already loading'), { statusCode: 429 });
+        shuffling = true;
+        try {
+            const importedIds = listRecipes().map(item => readRecipeFile(item.slug)?.meta.suggestion_id).filter(Boolean);
+            const excluded = new Set([...excludeIds, ...suggestions.map(item => item.id), ...importedIds]);
+            const fresh = await fetchSuggestions({ category, excludeIds: [...excluded], count: 15 });
+            const seen = new Set();
+            const available = fresh.filter(item => {
+                if (item.category !== 'mains' || excluded.has(item.id) || seen.has(item.id) || findExisting(item)) return false;
+                validateSourceRecipe(item.recipe);
+                seen.add(item.id);
+                return true;
+            }).slice(0, 15);
+            if (!available.length) {
+                throw Object.assign(new Error('No different main courses found. Try another category.'), { statusCode: 422 });
+            }
+            const cached = [...available, ...suggestions.filter(item => !seen.has(item.id))]
+                .filter(item => /^mealdb-\d+$/.test(item.id)).slice(0, 200);
+            const next = [...cached, ...catalog];
+            if (cacheFile) {
+                fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+                const temporary = `${cacheFile}.${process.pid}.tmp`;
+                fs.writeFileSync(temporary, JSON.stringify({ version: 1, recipes: cached }), 'utf8');
+                fs.renameSync(temporary, cacheFile);
+            }
+            suggestions = next;
+            return available.map(({ recipe, ...suggestion }) => suggestion);
+        } finally {
+            shuffling = false;
+        }
     }
 
     function importSuggestion(id) {
-        const suggestion = catalog.find(item => item.id === id && item.category === 'mains');
+        const suggestion = suggestions.find(item => item.id === id && item.category === 'mains');
         if (!suggestion) {
             const error = new Error('Recipe suggestion not found');
             error.statusCode = 404;
@@ -66,7 +125,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
         }
     }
 
-    return { listSuggestions, importSuggestion };
+    return { listSuggestions, importSuggestion, shuffleSuggestions };
 }
 
 module.exports = { createRecipeSuggestions };

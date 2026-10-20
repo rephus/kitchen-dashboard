@@ -2244,6 +2244,14 @@ input[type="number"] {
 
 .planner-suggestions-heading h2 { font-size: 22px; margin-bottom: 8px; }
 .planner-suggestions-heading p { color: #a8aebb; font-size: 14px; line-height: 1.6; }
+.planner-suggestions-controls { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+.planner-suggestions-controls label { display: flex; flex: 1; max-width: 280px; flex-direction: column; gap: 6px; color: #b3bac7; font-size: 12px; }
+.planner-suggestions-controls select,
+.planner-suggestions-controls button { min-height: 44px; border: 1px solid #414756; border-radius: 10px; padding: 0 12px; background: #151922; color: var(--text); font: inherit; }
+.planner-suggestions-controls select { width: 100%; }
+.planner-suggestions-controls button { background: var(--accent); border-color: var(--accent); font-weight: 650; cursor: pointer; }
+.planner-suggestions-controls button:disabled { opacity: .6; cursor: wait; }
+.planner-suggestions-status { min-height: 20px; margin-bottom: 15px; color: #b3bac7; font-size: 12px; line-height: 1.5; }
 .planner-suggestions-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
 .planner-suggestion-card {
     display: flex;

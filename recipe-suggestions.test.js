@@ -14,9 +14,10 @@ function fixture(t, options = {}) {
         description: 'Un plato nuevo.', recipe: { name: 'New main', ingredients: ['200 g rice'], instructions: ['Cook the rice.'] } };
     const recipes = [{ slug: 'existing', title: 'Existing meal' }];
     const meta = new Map();
-    const service = createRecipeSuggestions({
+    const config = {
         catalog: [suggestion, { ...suggestion, id: 'dessert', category: 'desserts' }], recipesDir: dir,
-        listRecipes: () => [...recipes, ...fs.readdirSync(dir).map(file => ({ slug: file.slice(0, -3), title: suggestion.title }))],
+        listRecipes: () => [...recipes, ...fs.readdirSync(dir).filter(file => file.endsWith('.md'))
+            .map(file => ({ slug: file.slice(0, -3), title: suggestion.title }))],
         readRecipeFile: slug => ({ meta: meta.get(slug) || {} }),
         getRecipe: slug => ({ slug, title: suggestion.title, content: fs.existsSync(path.join(dir, `${slug}.md`))
             ? fs.readFileSync(path.join(dir, `${slug}.md`), 'utf8') : '' }),
@@ -26,8 +27,12 @@ function fixture(t, options = {}) {
             plan = { ...plan, ...data };
             return plan;
         }, expandWeeklyPlan: value => value,
-    });
-    return { service, suggestion, dir, recipes, meta, setPlan: value => { plan = value; }, getPlan: () => plan };
+        cacheFile: path.join(dir, 'data', 'suggestions.json'),
+        fetchSuggestions: options.fetchSuggestions,
+    };
+    const service = createRecipeSuggestions(config);
+    return { service, suggestion, dir, recipes, meta, recreate: () => createRecipeSuggestions(config),
+        setPlan: value => { plan = value; }, getPlan: () => plan };
 }
 
 test('imports a complete main and selects it, preserving prior meals and exclusions', t => {
@@ -87,4 +92,73 @@ test('rejects incomplete cached recipes without changing the plan', t => {
     assert.throws(() => f.service.importSuggestion('new-main'), /instruction|step|method/i);
     assert.deepEqual(fs.readdirSync(f.dir), []);
     assert.deepEqual(f.getPlan().selectedRecipes, ['existing']);
+});
+
+function discovered(id = '123') {
+    return { id: `mealdb-${id}`, title: `New recipe ${id}`, originalTitle: `New recipe ${id}`,
+        category: 'mains', mealCategory: 'Chicken', source: 'TheMealDB',
+        sourceUrl: `https://www.themealdb.com/meal.php?c=${id}`,
+        recipe: { name: 'Source dish', ingredients: ['200 g chicken'], instructions: ['Cook the chicken.'] } };
+}
+
+test('shuffle persists new source recipes across restart without changing the menu', async t => {
+    let request;
+    const f = fixture(t, { fetchSuggestions: async options => { request = options; return [discovered()]; } });
+    f.meta.set('existing', { suggestion_id: 'mealdb-999' });
+    const previous = structuredClone(f.getPlan());
+    const fresh = await f.service.shuffleSuggestions({ category: 'Chicken', excludeIds: ['visible-id'] });
+    assert.equal(request.category, 'Chicken');
+    assert.ok(request.excludeIds.includes('visible-id'));
+    assert.ok(request.excludeIds.includes('new-main'));
+    assert.ok(request.excludeIds.includes('mealdb-999'));
+    assert.deepEqual(fresh.map(item => item.id), ['mealdb-123']);
+    assert.equal(fresh[0].recipe, undefined);
+    assert.deepEqual(f.getPlan(), previous);
+    const restarted = f.recreate();
+    assert.equal(restarted.listSuggestions()[0].id, 'mealdb-123');
+    const imported = restarted.importSuggestion('mealdb-123');
+    assert.match(imported.recipe.content, /200 g chicken/);
+    assert.match(imported.recipe.content, /https:\/\/www.themealdb.com\/meal.php\?c=123/);
+    assert.ok(imported.plan.selectedRecipes.includes(imported.recipe.slug));
+});
+
+test('shuffle excludes earlier discoveries and rejects duplicate, non-main and empty results', async t => {
+    let iteration = 0;
+    let exclusions;
+    const f = fixture(t, { fetchSuggestions: async options => {
+        exclusions = options.excludeIds;
+        return iteration++ ? [discovered(), { ...discovered('124'), category: 'desserts' }]
+            : [discovered(), discovered()];
+    } });
+    assert.equal((await f.service.shuffleSuggestions()).length, 1);
+    await assert.rejects(f.service.shuffleSuggestions(), /No different main courses/);
+    assert.ok(exclusions.includes('mealdb-123'));
+    assert.equal(f.service.listSuggestions()[0].id, 'mealdb-123');
+});
+
+test('upstream failure preserves the current suggestions and saved cache', async t => {
+    let fail = false;
+    const f = fixture(t, { fetchSuggestions: async () => {
+        if (fail) throw new Error('Source is unavailable');
+        return [discovered()];
+    } });
+    await f.service.shuffleSuggestions();
+    const before = fs.readFileSync(path.join(f.dir, 'data', 'suggestions.json'), 'utf8');
+    fail = true;
+    await assert.rejects(f.service.shuffleSuggestions(), /Source is unavailable/);
+    assert.equal(fs.readFileSync(path.join(f.dir, 'data', 'suggestions.json'), 'utf8'), before);
+    assert.equal(f.service.listSuggestions()[0].id, 'mealdb-123');
+});
+
+test('invalid exclusions and concurrent shuffle requests never start extra fetches', async t => {
+    let complete;
+    let calls = 0;
+    const f = fixture(t, { fetchSuggestions: () => { calls++; return new Promise(resolve => { complete = resolve; }); } });
+    await assert.rejects(f.service.shuffleSuggestions({ excludeIds: [null] }), /Invalid recipe exclusions/);
+    assert.equal(calls, 0);
+    const first = f.service.shuffleSuggestions();
+    await assert.rejects(f.service.shuffleSuggestions(), error => error.statusCode === 429);
+    complete([discovered()]);
+    await first;
+    assert.equal(calls, 1);
 });

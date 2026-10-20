@@ -63,9 +63,19 @@ and select it for next week. Imported recipes disappear from the suggestions;
 retrying an import reuses the saved recipe. Changes to the menu require another
 shopping review before the order is ready.
 
-The source-checked recipe snapshots live in `recipe-suggestion-catalog.json`, so
-importing does not depend on the source website accepting a server request.
-Suggestions are a curated catalog; they do not refresh automatically each week.
+Choose a category and press **Shuffle** to request different main courses from
+[TheMealDB's documented V1 API](https://www.themealdb.com/api.php). It excludes
+earlier discoveries and imported recipes, rejects incomplete recipes and explicit
+starter/side/dessert/breakfast tags, and preserves the source's quantities and
+instructions. Cuisine comes from the source. Cooking time and serving size remain
+blank when unavailable; these are not inferred. Source titles and instructions
+from TheMealDB stay in their original language.
+
+The initial Allrecipes snapshots live in `recipe-suggestion-catalog.json`.
+Discoveries are cached in `data/recipe-suggestion-cache.json` (up to 200 recipes),
+so they survive restarts and can be imported without another upstream request.
+A failed shuffle keeps the previous suggestions. The category filter affects the
+current batch and the next shuffle. Suggestions refresh when you request them.
 
 ## Meal selection history and favorites
 

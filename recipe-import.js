@@ -2,14 +2,15 @@
 
 // Imported recipes retain the source quantities and method. There is deliberately
 // no generated fallback when a source omits either of those fields.
-const SOURCE_HOSTS = new Set(['allrecipes.com', 'www.allrecipes.com', 'tasty.co', 'www.tasty.co']);
+const SOURCE_HOSTS = new Set(['allrecipes.com', 'www.allrecipes.com', 'tasty.co', 'www.tasty.co',
+    'themealdb.com', 'www.themealdb.com']);
 
 function sourceUrl(value) {
     let url;
     try { url = new URL(value); } catch { throw new Error('Choose a valid recipe source URL'); }
     if (url.protocol !== 'https:' || !SOURCE_HOSTS.has(url.hostname)
         || url.username || url.password || url.port) {
-        throw new Error('Recipe sources must use HTTPS on Allrecipes or Tasty');
+        throw new Error('Recipe sources must use HTTPS on Allrecipes, Tasty, or TheMealDB');
     }
     url.hash = '';
     return url;

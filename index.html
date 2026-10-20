@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a1a2e">
     <title>Kitchen</title>
-    <link rel="stylesheet" href="style.css?v=meal-favorites-20261020a">
+    <link rel="stylesheet" href="style.css?v=recipe-shuffle-20261020a">
 </head>
 <body>
     <!-- Main Dashboard -->
@@ -171,6 +171,22 @@
                     <h2 id="planner-suggestions-heading">New suggested recipes</h2>
                     <p>Main courses to try. Open a recipe to learn more, then import it into your recipes and next week's menu.</p>
                 </header>
+                <div class="planner-suggestions-controls">
+                    <label for="planner-suggestion-category">Category
+                        <select id="planner-suggestion-category">
+                            <option value="any">All main courses</option>
+                            <option value="Chicken">Chicken</option>
+                            <option value="Seafood">Fish &amp; seafood</option>
+                            <option value="Vegetarian">Vegetarian</option>
+                            <option value="Pasta">Pasta</option>
+                            <option value="Beef">Beef</option>
+                            <option value="Pork">Pork</option>
+                            <option value="Lamb">Lamb</option>
+                        </select>
+                    </label>
+                    <button type="button" id="planner-shuffle-suggestions">↻ Shuffle</button>
+                </div>
+                <p id="planner-suggestions-status" class="planner-suggestions-status" role="status"></p>
                 <div id="planner-suggestions-list" class="planner-suggestions-list" aria-live="polite"></div>
             </section>
 
@@ -352,6 +368,6 @@
             <small>Saves the recipe and selects it for next week.</small>
         </div>
     </dialog>
-    <script src="app.js?v=meal-favorites-20261020a"></script>
+    <script src="app.js?v=recipe-shuffle-20261020a"></script>
 </body>
 </html>
