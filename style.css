@@ -2244,6 +2244,22 @@ input[type="number"] {
 
 .planner-suggestions-heading h2 { font-size: 22px; margin-bottom: 8px; }
 .planner-suggestions-heading p { color: #a8aebb; font-size: 14px; line-height: 1.6; }
+.recipe-source-tabs { display: flex; gap: 6px; margin-bottom: 16px; padding: 4px; border-radius: 12px; background: #141820; }
+.recipe-source-tabs button { flex: 1; min-height: 42px; padding: 8px 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #b3bac7; font: inherit; cursor: pointer; }
+.recipe-source-tabs button[aria-selected="true"] { background: #302333; color: #ffadbc; border-color: #743a4c; }
+.recipe-source-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.based-cooking-note { margin-bottom: 14px; color: #a8aebb; font-size: 12px; line-height: 1.6; }
+.based-cooking-note a { color: #fb879a; }
+.based-cooking-search label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; color: #b3bac7; font-size: 12px; }
+.based-cooking-search input { min-width: 0; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid #414756; border-radius: 10px; background: #151922; color: var(--text); font: inherit; font-size: 14px; }
+.based-cooking-controls { flex-wrap: wrap; }
+.based-cooking-controls label { min-width: 0; }
+.based-cooking-controls label:first-child { flex: 1.4; }
+.based-cooking-controls select { min-width: 0; text-overflow: ellipsis; }
+.based-cooking-controls button { flex-shrink: 0; }
+.based-cooking-more { display: block; width: 100%; min-height: 44px; margin: 18px 0; border: 1px solid #414756; border-radius: 10px; background: #151922; color: var(--text); font: inherit; cursor: pointer; }
+.based-cooking-more[hidden] { display: none; }
+#source-based > .based-cooking-note:last-child { margin-top: 16px; }
 .planner-suggestions-controls { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
 .planner-suggestions-controls label { display: flex; flex: 1; max-width: 280px; flex-direction: column; gap: 6px; color: #b3bac7; font-size: 12px; }
 .planner-suggestions-controls select,
@@ -2321,6 +2337,13 @@ input[type="number"] {
 .suggestion-dialog-ingredients h3 { margin-bottom: 10px; font-size: 16px; }
 .suggestion-dialog-ingredients ul { padding-left: 20px; color: #c2c7d1; font-size: 14px; line-height: 1.6; }
 .suggestion-dialog-ingredients li { margin-bottom: 6px; }
+.suggestion-dialog-ingredients .suggestion-ingredient-heading { list-style: none; margin: 14px 0 8px -20px; font-weight: 650; }
+.suggestion-dialog-ingredients .suggestion-ingredient-note { list-style: none; margin-left: -20px; color: #a8aebb; }
+.suggestion-dialog-method { margin-top: 18px; color: #c2c7d1; font-size: 14px; line-height: 1.6; }
+.suggestion-dialog-method summary { cursor: pointer; color: #fb879a; }
+.suggestion-dialog-method ol { margin-top: 12px; padding-left: 22px; }
+.suggestion-dialog-method li { margin-bottom: 10px; }
+.suggestion-dialog-copy .suggestion-dialog-credits { margin-top: 18px; font-size: 12px; color: #a8aebb; }
 .suggestion-dialog-actions { padding: 12px 24px 24px; }
 .suggestion-dialog-actions button {
     width: 100%;
@@ -3307,7 +3330,7 @@ input[type="number"] {
     }
 }
 
-/* Selection-based favorites. */
+/* Manually starred favorites. */
 .planner-section-intro {
     margin: 4px 0 18px;
 }
@@ -3322,40 +3345,87 @@ input[type="number"] {
     line-height: 1.5;
 }
 .planner-favorites-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.planner-favorite-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 16px;
-    border: 1px solid var(--planner-border);
-    border-radius: 14px;
-    background: var(--planner-surface);
-}
-.planner-favorite-card div {
-    min-width: 0;
-}
-.planner-favorite-card strong,
-.planner-favorite-card small {
-    display: block;
-    overflow-wrap: anywhere;
-}
-.planner-favorite-card small {
-    margin-top: 6px;
-    color: #aab0bc;
-    font-size: 12px;
-}
-.planner-favorite-card button {
-    flex-shrink: 0;
-    min-height: 42px;
-    padding: 8px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    padding-bottom: 18px;
 }
 
 /* Keep horizontal planner filters from shifting the whole viewport. */
 html {
     overflow-x: clip;
+}
+
+
+
+.planner-recipe-card,
+.planner-quick-card,
+.planner-selected-card {
+    position: relative;
+}
+.planner-favorite-star {
+    position: absolute;
+    z-index: 2;
+    top: 9px;
+    right: 9px;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 9px;
+    border: 1px solid #ffffff50;
+    border-radius: 50%;
+    background: #11151ce8;
+    color: #fff;
+    box-shadow: 0 2px 8px #0004;
+    cursor: pointer;
+}
+.planner-favorite-star svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+}
+.planner-favorite-star.is-starred {
+    border-color: #f5cd70;
+    color: #f5cd70;
+}
+.planner-favorite-star.is-starred svg {
+    fill: currentColor;
+}
+.planner-favorite-star:focus-visible {
+    outline: 2px solid #f5cd70;
+    outline-offset: 3px;
+}
+.planner-favorite-star:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+.planner-quick-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+.planner-quick-card > div {
+    padding-right: 44px;
+}
+.planner-quick-card > .planner-add-btn {
+    margin-top: auto;
+}
+.planner-selected-card {
+    padding-right: 64px;
+}
+
+/* Keep every meal card in the visible grid when its star receives focus. */
+.planner-list,
+.planner-quick-list,
+.planner-favorites-list {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    overflow-x: visible;
+    margin-right: 0;
+    padding-right: 0;
+    scroll-snap-type: none;
 }

@@ -1,0 +1,660 @@
+{
+  "aaron-taylor": {
+    "name": "Aaron Taylor",
+    "website": "https://atay.me"
+  },
+  "aayla-semyonova": {
+    "name": "Aayla Semyonova",
+    "website": "https://aayla.dev"
+  },
+  "aeredren": {
+    "name": "Aeredren",
+    "website": "https://github.com/Aeredren"
+  },
+  "aj": {
+    "name": "AJ",
+    "xmr": "45kYSzfMbY79HeuFoJC2sSGwoXCkty7X6F8nD7rNMkmuZvsDwoAnxDk3B1bT4rK2Je6z9cvKoxxGqS7aUbzvQajzEcK8nfQ"
+  },
+  "alex-selimov": {
+    "name": "Alex Selimov",
+    "website": "https://alexselimov.xyz"
+  },
+  "alexander-bocken": {
+    "name": "Alexander Bocken",
+    "email": "alexander@bocken.org",
+    "website": "https://bocken.org",
+    "xmr": "88fMo1f3BJk5m8VFvUMmcSHisWzi6Z8zb5AsZUEYjuCC2cxZHtphhqsfNLyEKwjhSTCD4W1S9ymnfVxFwaKCsnjKUYwxMDS"
+  },
+  "alpo": {
+    "name": "alpo",
+    "website": "https://github.com/alpo"
+  },
+  "amine-saddem": {
+    "name": "Amine Saddem",
+    "website": "https://github.com/SaddemAmine",
+    "email": "naceuramine.saddem@gmail.com"
+  },
+  "andrej-kirchmaier": {
+    "name": "Andrej Kirchmaier",
+    "xmr": "47JvqA3PXXwd71EtACWFa62jEVQhMtKxfeov23195GKq3xpSVDnBFKwHHvN7775DnkcBBzimXXPrnfjqCaFkdYpE3A3bA7H"
+  },
+  "andy-rufasto": {
+    "name": "Andy Rufasto",
+    "email": "andy@andyrufasto.cf",
+    "gpg": "https://keyoxide.org/0A3D7C5B8C2499A8BEBCE72869D2E5C413569DA2"
+  },
+  "arth-patel": {
+    "name": "Arth Patel",
+    "website": "https://arthnpatel.com"
+  },
+  "artur-mancha": {
+    "name": "Artur Mancha",
+    "website": "https://pleroma.pt/@lisbonjoker"
+  },
+  "batu-cam": {
+    "name": "Batu Cam",
+    "xmr": "85eZ4uVd4gkiCsQEeDnsQG9pUbDzdi1r1VSJ9hK5Sx7hKsFZjvmqtWV7gU1ysWUR32jhWutBRGUUq8VAJNUfin9wBCCuTdg"
+  },
+  "ben-stox": {
+    "name": "Ben Stox",
+    "xmr": "48KXXduT7D4eXsUdQUNfJWF8ZcUhsJwcJax44nhiPkuN2k3Eh8YizW4FzzmFQzHy6mV8PUsqK1FNCBtfB6VFR2VBVSZy5Tm"
+  },
+  "benjamin-h": {
+    "name": "Benjamin H",
+    "website": "https://beherrlich.xyz",
+    "xmr": "yTQ2hifnHNnqHNMQNqE6nggMGCSqsXadThkrFhTWKo4dK6HFj6NDUocnJYHvaQjZ1TwLDMYXVpj6bCm2Sonhpnp"
+  },
+  "bernardo-slongo": {
+    "name": "Bernardo Slongo",
+    "website": "https://bernardoslongo.xyz"
+  },
+  "bernhard-egger": {
+    "name": "Bernhard Egger",
+    "website": "https://eggerbernhard.ch"
+  },
+  "bianca-purin": {
+    "name": "Bianca Purin",
+    "website": "https://neur0rat.github.io",
+    "xmr": "83NpjqYrG3JHCcVJQq6kRf3HVNpmiEzjnPkyDzdswx5xacZk5ZFMLhe9wTotz1zouHgQahJ5GXJFGK4goMzSaP2KHtAYvTT"
+  },
+  "bilovytskyy": {
+    "name": "Sergey Bilovytskyy",
+    "website": "https://sbrl.xyz",
+    "xmr": "48eoYYRZ8PpW76QwAA8GDULV6N3CSYoTzZo89SraiNrgeweshs854qeRTa6ztN7f4eCBMb5Vy2tfE3VLM5xvR4VWAsT7LEA"
+  },
+  "brox": {
+    "name": "brox",
+    "xmr": "8AaUvC4JPfTVgy66FLd8mVfsPwT7RXJuPK2xySoKnFEhDZPNafpgn6rh8VPBVauyNP17EQQ1HGhMCZdtUJNoD7xnVt1cSLo"
+  },
+  "cactar": {
+    "name": "Cactar",
+    "website": "https://infinitevoid.dev/"
+  },
+  "carl-zimmerman": {
+    "name": "Carl Zimmerman",
+    "website": "https://codingwithcarl.com"
+  },
+  "chandra-kiran": {
+    "name": "Chandra Kiran",
+    "website": "https://github.com/ackr-8"
+  },
+  "chetan-basuray": {
+    "name": "Chetan Basuray",
+    "website": "https://github.com/chetanbasuray",
+    "donate": "http://chetanbasuray.tk/"
+  },
+  "clockworkhobo": {
+    "name": "Clockworkhobo",
+    "website": "http://clockworkhobo.com",
+    "email": "patrick@clockworkhobo.com"
+  },
+  "closedgl": {
+    "name": "ClosedGL",
+    "website": "https://github.com/ClosedGL2"
+  },
+  "corerat": {
+    "name": "corerat",
+    "website": "https://corerat.neocities.org",
+    "xmr": "43cZKEaD38i9dmeRZtbyusB3rVF3aCy4EA5rzjBod3tkC6TBqtjuHAbJuynXG9mVzxRvDHzKfKYRr5nrQt8VFJzxTWJ8uo5",
+    "btc": "bc1qvqvcfrze5cfkpvvd8n2venw30vcejsdf682wqf260q2jdxjnj4vqyppe6r",
+    "donate": "https://corerat.bandcamp.com"
+  },
+  "crazywillbear": {
+    "name": "CrazyWillBear",
+    "website": "https://crazywillbear.github.io"
+  },
+  "daddy-warcrimes": {
+    "name": "Daddy Warcrimes",
+    "website": "https://daddywarcrimes.blogspot.com/",
+    "donate": "https://daddywarcrimes.blogspot.com/2018/05/why-im-asking-for-money.html"
+  },
+  "dan": {
+    "name": "Dan",
+    "eth": "0xC86468549c180A296384aAC2F76c8F581691Bc1b"
+  },
+  "daniel-kemmerich": {
+    "name": "Daniel Kemmerich",
+    "website": "https://github.com/cabinetto"
+  },
+  "danoloan": {
+    "name": "danoloan",
+    "website": "https://danoloan.es",
+    "xmr": "45Zhy22Aoiq2sZVBuddmmMQKPGQJRukimHG5ZHugwedwXZjWhfC4Mqw5fSRkspdu1hPEiVNhwAnTND5FvtrLFeb9JkVSktG"
+  },
+  "davide-costa": {
+    "name": "Davide Costa",
+    "website": "https://davcloud.xyz",
+    "xmr": "4BD4REH2QyC5dhb7W4hYUnD3poGgpg9TGVrn1iRcdkQzBrm44eAre1GcfvsPakPF1thy2CBcBqZmzCLRsU6gZftY1Bg23f9"
+  },
+  "declan-cash": {
+    "name": "Declan Cash",
+    "website": "https://declancash.com"
+  },
+  "digi": {
+    "name": "digi",
+    "website": "https://git.sr.ht/~digi/"
+  },
+  "dr-cat": {
+    "name": "Dr. Cat",
+    "website": "https://github.com/castrated"
+  },
+  "dunkelheit-biz": {
+    "name": "Dunkelheit Citizen",
+    "website": "https://dunkelheit.biz",
+    "btc": "bc1qrpetnee8y0wdsee8fg6vjs9u85uw45fgnefs0d",
+    "xmr": "87ukrCxsbK79rQbGwutzTmE4RDPiayn3xK5JT63iiSks5Q9TMCsXzUibXEea1q6x6ij6u2UDxzXpNBU5bP4u8Wz34esoLRG",
+    "donate": "https://dunkelheit.biz/donate"
+  },
+  "el3ctr0lyte": {
+    "name": "el3ctr0lyte",
+    "website": "https://github.com/el3ctr0lyte"
+  },
+  "elias-howell": {
+    "name": "Elias Howell",
+    "website": "https://polyeleos.xyz"
+  },
+  "elias-pahls": {
+    "name": "Elias Pahls",
+    "email": "pahlse@pm.me"
+  },
+  "enrique95": {
+    "name": "enrique95",
+    "website": "https://github.com/enrique95"
+  },
+  "enthdegree": {
+    "name": "enthdegree",
+    "website": "https://ebn0.net"
+  },
+  "eoin-coogan": {
+    "name": "Eoin Coogan",
+    "website": "https://eoincoogan.com"
+  },
+  "erik-rodabaugh": {
+    "name": "Erik Rodabaugh",
+    "website": "https://erikrodabaugh.com"
+  },
+  "extramundane": {
+    "name": "extramundane (Ex)",
+    "website": "https://extramundane.xyz",
+    "donate": "https://extramundane.xyz/donate.html"
+  },
+  "front3ndninja": {
+    "name": "Front3ndNinja ",
+    "website": "https://github.com/Front3ndNinja"
+  },
+  "furkan": {
+    "name": "furkan",
+    "website": "https://www.makindagames.xyz"
+  },
+  "haywalk": {
+    "name": "Hayden Walker",
+    "website": "https://www.haywalk.ca",
+    "btc": "3Quv4McHBQaJfgQ69NuZKzyNVCVcwhkEBU",
+    "eth": "0x36d1422a1761B6c3F8e72013960ABFb4094d9DbE",
+    "donate": "https://www.haywalk.ca/donate.html",
+    "email": "hayden@haywalk.ca"
+  },
+  "henry": {
+    "name": "henry",
+    "website": "https://github.com/hcm444"
+  },
+  "holsterbau": {
+    "name": "Holsterbau",
+    "website": "https://github.com/Holsterbau"
+  },
+  "isaac-hill": {
+    "name": "Isaac Hill",
+    "website": "https://isaachill.co.uk"
+  },
+  "ivn1s": {
+    "name": "ivn1s",
+    "website": "https://github.com/ivn1s"
+  },
+  "jack-crawford": {
+    "name": "Jack Crawford",
+    "website": "https://github.com/jjcrawford"
+  },
+  "jacob-smith": {
+    "name": "Jacob Smith",
+    "website": "https://jacobwsmith.xyz"
+  },
+  "jake-keast": {
+    "name": "Jake Keast",
+    "website": "https://jakekeast.xyz",
+    "xmr": "8BBKCQbL1xSKS8fWE257cVBzerYu1censWYUCncLppo6MPLd3u59ejYE9XMdW4CNL3DGgf1vjG5SHGDEJV95xtxW2wsaANo"
+  },
+  "jakub-korsak": {
+    "name": "Jakub Korsak",
+    "website": "https://korsak.xyz",
+    "donate": "https://korsak.xyz/crypto"
+  },
+  "james-kent": {
+    "name": "James",
+    "website": "https://jameskent.xyz"
+  },
+  "jesper": {
+    "name": "Jesper",
+    "xmr": "88cPx6Gzv5RWRRJLstUt6hACF1BRKPp1RMka1ukyu2iuHT7iqzkNfMogYq3YdDAC8AAYRqmqQMkCgBXiwdD5Dvqw3LsPGLU"
+  },
+  "jess-calape": {
+    "name": "Jess Calape",
+    "website": "https://twitter.com/justjess1128"
+  },
+  "joe-powerhouse": {
+    "name": "Joe Powerhouse",
+    "btc": "1KPxw9js2VukakhMv2wUUFUQZnHQL842ju"
+  },
+  "joel-farthing": {
+    "name": "Joel Farthing",
+    "website": "https://github.com/J-F-Far"
+  },
+  "joel-maxuel": {
+    "name": "Joel Maxuel",
+    "btc": "bc1qvpj4juacefyl6v7f6f7helggsmmxn97s7h6yzd",
+    "xmr": "4AdhfxUfFbPd11epEKsuDqBm4jJEapK9UUhgFH8ss7aSAhtox1Li4B6LZwoEuZ6W8BJUCpRynUXFCWcDUzKUd7Cr99kk4tM",
+    "website": "https://github.com/joelmaxuel"
+  },
+  "john-hubberts": {
+    "name": "John Hubberts",
+    "website": "https://github.com/jhubberts"
+  },
+  "jon-burga": {
+    "name": "Jon Burga",
+    "website": "https://jonburga.com",
+    "btc": "bc1qqsj592ls8xdhxpf5h4e8wj2w3v9uvv6mc6gz7f"
+  },
+  "jon-paul-uritis": {
+    "name": "Jon Paul Uritis",
+    "website": "https://jonpauluritis.com",
+    "donate": "http://paypal.me/jppope"
+  },
+  "josiah": {
+    "name": "Josiah",
+    "website": "https://himiko.cloud",
+    "donate": "https://himiko.cloud/donate/"
+  },
+  "josrael": {
+    "name": "Josrael",
+    "website": "https://josrael.neocities.org",
+    "xmr": "8BAyDAgy2DHDmjoCNkaC5wBeLVLxyWmxDcJ8er1X3dg2D1Mu4YaR1VMhB5UuUwBgH8DQjLzMeqFWo4SgPVJ7d7kqQ8HEJsr",
+    "email": "mailto:amityjack@protonmail.com"
+  },
+  "joão-freitas": {
+    "name": "João Freitas",
+    "website": "https://joaoofreitas.tech"
+  },
+  "julien": {
+    "name": "Julien",
+    "email": "levesquej@protonmail.com"
+  },
+  "kelvin-shadewing": {
+    "name": "Kelvin Shadewing",
+    "website": "https://odysee.com/@KelvinShadewing:d"
+  },
+  "kirill-schmidt": {
+    "name": "Kirill Schmidt",
+    "website": "https://edugit.org/k1r1ll"
+  },
+  "kyle-steger": {
+    "name": "Kyle Steger",
+    "website": "https://github.com/kyleVsteger"
+  },
+  "kylertk": {
+    "name": "kylertk",
+    "website": "https://github.com/kylertk"
+  },
+  "laura-alvarez": {
+    "name": "Laura Álvarez Iglesias",
+    "website": "https://lauralvrz.github.io/"
+  },
+  "laurent-micheli": {
+    "name": "Laurent Micheli",
+    "website": "https://digitalstatic.xyz"
+  },
+  "leo-meinel": {
+    "name": "Leopold Johannes Meinel",
+    "email": "leo@meinel.dev"
+  },
+  "luis-fernando-maschietto-junior": {
+    "name": "Luis Fernando Maschietto Junior",
+    "website": "https://lufemas.com",
+    "donate": "https://www.paypal.com/donate/?business=E9VFF6Z87TH2N&no_recurring=0&currency_code=CAD"
+  },
+  "lukasz-drukala": {
+    "name": "Łukasz Drukała",
+    "website": "https://masflam.com",
+    "donate": "https://masflam.com/#donate"
+  },
+  "luke-chadwick": {
+    "name": "Luke Chadwick",
+    "website": "https://lukechadwick.com"
+  },
+  "luke-goule": {
+    "name": "Luke Goule",
+    "website": "https://github.com/LukeGoule"
+  },
+  "luke-smith": {
+    "name": "Luke Smith",
+    "website": "https://lukesmith.xyz",
+    "btc": "bc1q763s4ud0hgfa66ce64gyh6tsss49vyk5cqcm6w",
+    "xmr": "84N9N3DMWhQ9cstHwGEjo8hEvm9bjeYgjV5fLrGK6TmA9iVPjnU7NMUT7gyAc22UgGAVTCUgReQ1J67znhWP3L52Usfw6jg"
+  },
+  "lxgr": {
+    "name": "Lxgr",
+    "website": "https://github.com/lxgr-linux"
+  },
+  "lázaro-blanc": {
+    "name": "Lázaro Blanc",
+    "website": "https://blnc.io"
+  },
+  "martin-chrzanowski": {
+    "name": "Martin Chrzanowski",
+    "website": "https://m-chrzan.xyz",
+    "donate": "https://m-chrzan.xyz/donate.html",
+    "btc": "15CRCVx5okbTDwU6M4kmA1JGTimtFkZFak",
+    "xmr": "43a9nnjbS38daKSM7reXJE3CydjZMxdj6Yu4YLvP1zN7TfrHGBjiEKy6PPAuznSYpG6Af1ip6qBkn85Lahtqj7fZVQKMdJu",
+    "eth": "0x8370f8De24c4Dc0459CF22DAaAe259f89A03e626"
+  },
+  "martin-stohanzl": {
+    "name": "Martin Stohanzl",
+    "website": "https://loesmartin.at"
+  },
+  "mental-outlaw": {
+    "name": "Mental Outlaw",
+    "website": "https://www.youtube.com/user/MentalOutlawStudios",
+    "xmr": "45F2bNHVcRzXVBsvZ5giyvKGAgm6LFhMsjUUVPTEtdgJJ5SNyxzSNUmFSBR5qCCWLpjiUjYMkmZoX9b3cChNjvxR7kvh436"
+  },
+  "mfed3": {
+    "name": "mfed3",
+    "xmr": "48eEMdYtCQaV5wY7wvmxK6jCxKkia9dgpNTMNT1do7RLWXCwWDgSKjN3kiZ6yHbAuAXWgDGN6imnGT9NPeHWD7zX9hSyHu2"
+  },
+  "michael": {
+    "name": "Michael",
+    "website": "https://murphym.dev/"
+  },
+  "miika-nissi": {
+    "name": "Miika Nissi",
+    "website": "https://miikanissi.com"
+  },
+  "milutinke": {
+    "name": "milutinke",
+    "website": "https://github.com/milutinke"
+  },
+  "miraunpajaro": {
+    "name": "miraunpajaro",
+    "website": "https://marhuenda.in",
+    "website_tor": "http://whd6ybsnrjx5235id6rfvjagb3lerinqhnqph4zbztkbqvufv3yppnid.onion",
+    "xmr": "49UT7DWUCJfBTwHKP5tx4c15UFqR43uJ6Ag7nQsfTWJWZsnbz7HEZ3KZiAiEG1W2LW1mVoowER47gTeLxR7Vq4io5xLbTkp"
+  },
+  "mjt91": {
+    "name": "mjt91",
+    "website": "https://github.com/mjt91",
+    "donate": "https://www.paypal.com/paypalme/mjt91"
+  },
+  "mons": {
+    "name": "Mons",
+    "website": "https://blog.mons.ws/",
+    "donate": "https://yoomoney.ru/to/41001158104834"
+  },
+  "mr-mip": {
+    "name": "Mr. Mip",
+    "website": "https://mrmip.dev"
+  },
+  "mttwdevelops": {
+    "name": "mttwdevelops",
+    "website": "https://github.com/mttwdevelops",
+    "xmr": "46ZkjzFHDFZfys75kQ1dYw52rZPG2a1amAmV39itnRuSfoqGg3bWXdtWRs5EDzq2z1giqNiK971dQBz216C2PywJRNB1rz8"
+  },
+  "nacchofer31": {
+    "name": "Nacchofer31",
+    "website": "https://github.com/Nacchofer31"
+  },
+  "nelson-morrow": {
+    "name": "Nelson Morrow",
+    "website": "https://nelmo.xyz"
+  },
+  "nihar-samantaray": {
+    "name": "Nihar Samantaray",
+    "website": "https://nihars.com",
+    "email": "i@nihars.com"
+  },
+  "octopusonfire": {
+    "name": "OctopusOnFire",
+    "website": "https://www.minds.com/OctopusOnFire/"
+  },
+  "oq-olarte": {
+    "name": "O.Q. Olarte",
+    "website": "https://oqolarte.github.io",
+    "donate": "https://oqolarte.github.io/support"
+  },
+  "patryk-niedźwiedziński": {
+    "name": "Patryk Niedźwiedziński",
+    "website": "https://niedzwiedzinski.cyou"
+  },
+  "pazu": {
+    "name": "pazu",
+    "xmr": "48QiCovstDPbHtMR5DP8tp3fUgguVUcdUX2pjbh6utt88fMe5h233ZnY7PxxdQYCjrVuCBQA2D8JBYU7rH2MdVDHFKd7QJi",
+    "btc": "17FWEWrKuock7eeZY3DTne7LgES1uKYZK5"
+  },
+  "peepopoggers": {
+    "name": "peepopoggers",
+    "website": "https://github.com/peepopoggers"
+  },
+  "peter-wilbrink": {
+    "name": "Peter Wilbrink",
+    "website": "https://printplaatreparatie.nl"
+  },
+  "philip-wittamore": {
+    "name": "Philip Wittamore",
+    "website": "https://wittamore.com"
+  },
+  "poi": {
+    "name": "POI",
+    "xmr": "839y6ZVazAoA1LQNX9ATYh6cSTmkAZQeGAQLsDTThGqv5mcG3mbHKdpdr5nqwJsZLbLcm8yZQDDvDXsd7f9tgRDc75KJraf"
+  },
+  "postbellum": {
+    "name": "Postbellum",
+    "website": "https://github.com/postbellum"
+  },
+  "ram-pari": {
+    "name": "Ram Pari",
+    "website": "https://github.com/ramkpari",
+    "btc": "bc1q763s4ud0hgfa66ce64gyh6tsss49vyk5cqcm6w"
+  },
+  "rami-shafikov": {
+    "name": "Rami Shafikov",
+    "website": "https://shafikov.ca"
+  },
+  "remove-wingman": {
+    "name": "Remove Wingman",
+    "website": "https://rw8.lu/"
+  },
+  "reneon": {
+    "name": "Reneon",
+    "website": "https://github.com/github-reneon"
+  },
+  "ricky-linden": {
+    "name": "Ricky Lindén",
+    "website": "https://rickylinden.com",
+    "donate": "https://rickylinden.com/donate.html"
+  },
+  "rijk": {
+    "name": "Rijk",
+    "website": "https://github.com/rijkvp"
+  },
+  "riley-ross": {
+    "name": "Riley Ross",
+    "website": "https://rileymross.com/",
+    "xmr": "87bhjDJCM2xHZ2D5p7S95aLaebg9Xmnv8MDrhca6155gf7wdWeiY9ju7as3Tuc9CutZSXY4e67iNw9RLjpawf1Fp44c1x6c"
+  },
+  "robert5800": {
+    "name": "Robert",
+    "website": "https://github.com/robert5800"
+  },
+  "ryan-wilson": {
+    "name": "Ryan Wilson",
+    "website": "https://rdwilson.xyz",
+    "donate": "https://rdwilson.xyz/donate.html"
+  },
+  "sadoon-albader": {
+    "name": "Sadoon AlBader",
+    "website": "https://soulserv.xyz"
+  },
+  "sami-ben-romdhane": {
+    "name": "Sami Ben Romdhane",
+    "btc": "bc1q5935r8ly3gpmndftf5dttpmqjycuw92x3snepg",
+    "xmr": "43DQYosBEoR5PhztL76411LRKLZ9m2jJb3ENonb4tppV9wvMtizgvDiP3RKjp9UfbdaU9TvEXsCeFU7q64NEcdawRB2pC9i",
+    "website": "https://based-mathematics.netlify.app/"
+  },
+  "scj": {
+    "name": "scj",
+    "website": "https://github.com/scohenjanes5"
+  },
+  "segf00lt": {
+    "name": "segf00lt",
+    "website": "https://joaodear.xyz"
+  },
+  "sekthor": {
+    "name": "sekthor",
+    "website": "https://github.com/sekthor",
+    "email": "sekthor@protonmail.ch"
+  },
+  "shane-kunz": {
+    "name": "Shane Kunz",
+    "website": "https://shanekunz.com"
+  },
+  "shou-ganai": {
+    "name": "Shou",
+    "website": "https://shouganai.xyz"
+  },
+  "siedes": {
+    "name": "siedes",
+    "website": "https://github.com/siedes"
+  },
+  "siggines": {
+    "name": "Jacob Siggins",
+    "website": "http://jacobsiggins.co.uk"
+  },
+  "sinan-kurtulmuş": {
+    "name": "Sinan Kurtulmuş",
+    "website": "https://www.sinankurtulmus.net"
+  },
+  "skipper-davies": {
+    "name": "Skipper Davies",
+    "website": "https://github.com/ferociousmadman"
+  },
+  "stanislav": {
+    "name": "Stanislav",
+    "website": "http://git.io/monesonn"
+  },
+  "svent": {
+    "name": "SvenT",
+    "website": "https://github.com/s8svtang"
+  },
+  "taislin": {
+    "name": "Taislin",
+    "website": "https://frogz.club/taislin"
+  },
+  "tait": {
+    "name": "Tait",
+    "website": "https://tait.tech"
+  },
+  "tanner-wilcox": {
+    "name": "Tanner Wilcox",
+    "website": "https://git.najer.info/twiclo",
+    "donate": "https://twil.cx/donate.txt"
+  },
+  "techiedamien": {
+    "name": "TechieDamien",
+    "website": "https://techiedamien.xyz"
+  },
+  "teo-dragovic": {
+    "name": "Teo Dragovic",
+    "website": "https://teodragovic.com"
+  },
+  "the-birchmen": {
+    "name": "the-birchmen",
+    "website": "https://github.com/the-birchmen/"
+  },
+  "themisch": {
+    "name": "themisch",
+    "website": "http://k63fspwi7eekmjy7i3ofk425lseyftfrbikyjs5ndgrvzasxlh6hoiid.onion",
+    "donate": "http://k63fspwi7eekmjy7i3ofk425lseyftfrbikyjs5ndgrvzasxlh6hoiid.onion/donate.html"
+  },
+  "thijs-wester": {
+    "name": "Thijs Wester",
+    "website": "https://wester.digital"
+  },
+  "tom-cotter": {
+    "name": "Thomas Cotter",
+    "website": "http://77.68.118.83/",
+    "xmr": "45E5PC6q2j8gM6Vm6NnSQeM1HT4UQsUTYeqM2k6y2oBY2SmHbm5jEGvXnR67eRknJGPW8R8L4hSj7JL74Wc24xWzDrQVUB6"
+  },
+  "tom-fasano": {
+    "name": "Tom",
+    "website": "https://tomfasano.net",
+    "btc": "bc1qgphyvk4hpmedga833t2cgs2ensrerypaz5s2kw",
+    "xmr": "45Y35khUdxxKgwXeQ5YJQyFRhndGdqFXHC8eP2y46bNx8h9z91xG9dyjjz1mQjEGksida7HJaZAXHaKFBfpKSVbpMLoQm2w",
+    "donate": "https://tomfasano.net/donate"
+  },
+  "tufek": {
+    "name": "TuFeK Yamero",
+    "email": "tufek@floan.fr",
+    "xmr": "89hGBR3GXL9XhVCE7iEHZPCpbKtKsqy8gE8M2stJ5LwdQknFYMSYa3ya52zKCya6HWQKs3QWobTKWKjxL3R2Dgi8VJm6Tp1"
+  },
+  "viktor": {
+    "name": "Viktor",
+    "btc": "bc1qz4prtskalv6gakn8l5k3cz37cgcc3xn5qmg48g",
+    "xmr": "45egur28TWcg1JQwVM3xGR1NxFzBMGaaKSjdo46yFe17cuo71htEfGmZPoo3Bq9Smo5oiKy7WYsWMd1RNMmvqgA14dQyzfb"
+  },
+  "vlad": {
+    "name": "Vlad",
+    "website": "https://github.com/VladPetryshyn"
+  },
+  "vod3": {
+    "name": "vod3",
+    "btc": "3DdikYnxPHv6Bz6qgXYoyxrcbikADqxwNd"
+  },
+  "yakatan": {
+    "name": "yakataN",
+    "website": "https://github.com/yakataN"
+  },
+  "yaroslav-smirnov": {
+    "name": "Yaroslav de la Peña Smirnov",
+    "website": "https://www.yaroslavps.com/",
+    "donate": "https://www.yaroslavps.com/donate"
+  },
+  "yiusa": {
+    "name": "Yiusa",
+    "eth": "0x68f1317c6512f0267fa711cafb6c134ae968fa80"
+  },
+  "yorge-z": {
+    "name": "Yorge Z",
+    "website": "https://github.com/yorgez"
+  },
+  "zyansheep": {
+    "name": "Zyansheep",
+    "website": "https://github.com/zyansheep",
+    "xmr": "84qR8cAwqf4eSSBoEgh11W2yhiV9XsePjMhL7M2gQ3TdPcoY2wHuthHEnqX2dH2hTZKh3CBQLUqBZAS77Yrgjh8v5kHwhL5"
+  }
+}

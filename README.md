@@ -77,15 +77,32 @@ so they survive restarts and can be imported without another upstream request.
 A failed shuffle keeps the previous suggestions. The category filter affects the
 current batch and the next shuffle. Suggestions refresh when you request them.
 
-## Meal selection history and favorites
+The **Based Cooking** subtab browses a complete local snapshot of the public-domain
+[Based Cooking collection](https://github.com/LukeSmithxyz/based.cooking). Search
+titles and ingredients, filter by course or source tag, shuffle locally, and open
+ingredients and preparation before importing. Main courses are shown by default;
+**All recipes** includes every course. Course labels are estimates from titles
+and tags, not source ratings. Saved recipes remain browsable and reuse the same
+recipe when added to a future plan. Text and importing need no external API;
+optional photos still load from based.cooking.
 
-Weekly Plan → Browse → **Favoritos** ranks recipes and quick meals by the number
-of planning weeks in which you selected them. New selections append timestamped
-events to `data/meal-selections.jsonl`; existing selections are not backfilled.
-Each meal counts once per next-week period (Monday in Europe/Madrid), so toggling
-or retrying does not inflate popularity. Importing a suggestion and generating a
-weekly idea also record selections. The history survives restarts and is available
-at `GET /api/meal-popularity`. Keep the JSONL file with the other `data/` backups.
+The snapshot and upstream commit are in `based-cooking-catalog.json`; license and
+credits are under `third-party/based-cooking/`. Refresh deliberately with
+`npm run sync:based-cooking -- /path/to/based.cooking-checkout`, then review the
+catalog diff and run `npm run test:recipes` before releasing. It does not refresh
+automatically or insert the collection into your saved recipes.
+
+## Meal favorites and selection history
+
+Use the star in the top-right corner of a meal card to add or remove a favorite.
+Weekly Plan → Browse → **Favoritos** shows only those manually starred recipes
+and quick meals. Stars persist separately in `data/meal-favorites.json` and do not
+change the weekly menu, order readiness, or shopping list.
+
+New meal selections still append timestamped events to `data/meal-selections.jsonl`
+for future popularity analysis. Each meal counts once per next-week period
+(Monday in Europe/Madrid). Existing selections are not backfilled. Both data files
+survive restarts and should be included with the other `data/` backups.
 
 ## Recipe Scanner 📸
 

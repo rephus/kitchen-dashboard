@@ -78,6 +78,14 @@ const suggestionImportBtn = document.getElementById('suggestion-import-btn');
 const suggestionCategoryEl = document.getElementById('planner-suggestion-category');
 const shuffleSuggestionsBtn = document.getElementById('planner-shuffle-suggestions');
 const suggestionsStatusEl = document.getElementById('planner-suggestions-status');
+const recipeSourceTabs = [...document.querySelectorAll('[data-recipe-source]')];
+const basedCookingListEl = document.getElementById('based-cooking-list');
+const basedCookingStatusEl = document.getElementById('based-cooking-status');
+const basedCookingSearchEl = document.getElementById('based-cooking-search');
+const basedCookingCourseEl = document.getElementById('based-cooking-course');
+const basedCookingTagEl = document.getElementById('based-cooking-tag');
+const basedCookingShuffleBtn = document.getElementById('based-cooking-shuffle');
+const basedCookingMoreBtn = document.getElementById('based-cooking-more');
 const plannerTabs = [...document.querySelectorAll('[data-planner-tab]')];
 const plannerTabPanels = [...document.querySelectorAll('[data-planner-panel]')];
 const plannerFilters = [...document.querySelectorAll('[data-planner-filter]')];
@@ -99,8 +107,9 @@ let weeklyPlanState = {
 let allQuickMeals = [];
 let allRecurringItems = [];
 let allShoppingRules = [];
-let mealPopularity = [];
-let mealPopularityError = false;
+let mealFavorites = [];
+const favoriteSaves = new Set();
+let mealFavoritesError = false;
 let activePlannerTab = 'menu';
 let activePlannerFilter = 'mains';
 let recipeSuggestions = [];
@@ -109,10 +118,35 @@ let activeSuggestion = null;
 let importingSuggestion = false;
 let shufflingSuggestions = false;
 let suggestionNotice = '';
+let activeRecipeSource = 'suggestions';
+let basedCookingRecipes = [];
+let basedCookingStatus = 'idle';
+let basedCookingSnapshot = null;
+let basedCookingVisibleCount = 24;
+const recipeCourseLabels = { mains: 'Main course', starters: 'Starter / soup', sides: 'Side / salad',
+    'sauces-basics': 'Sauce / basic', desserts: 'Dessert / baking', drinks: 'Drink', uncategorized: 'Other recipe' };
 
 function suggestionMeta(recipe) {
     return [recipe.source, recipe.cuisine, recipe.totalMinutes ? `${recipe.totalMinutes} min` : '',
         recipe.servings ? `${recipe.servings} raciones` : ''].filter(Boolean).join(' · ');
+}
+
+function recipeSuggestionCards(recipes) {
+    return recipes.map(recipe => {
+        const selected = recipe.importedRecipeSlug ? weeklyPlanState.selectedRecipes.includes(recipe.importedRecipeSlug) : recipe.selected;
+        return `
+        <button type="button" class="planner-suggestion-card" data-open-suggestion="${escapeHtml(recipe.id)}">
+            <span class="planner-suggestion-image">
+                ${recipe.imageUrl ? `<img src="${escapeHtml(recipe.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span aria-hidden="true">🍽️</span>'}
+            </span>
+            <span class="planner-suggestion-body">
+                <span class="planner-suggestion-source">${escapeHtml(suggestionMeta(recipe))}</span>
+                <strong>${escapeHtml(recipe.title)}</strong>
+                <span class="planner-suggestion-description">${escapeHtml(recipe.description)}</span>
+                <span class="planner-suggestion-view">${selected ? '✓ In next week’s plan' : recipe.importedRecipeSlug ? '✓ Saved · View recipe →' : 'View recipe →'}</span>
+            </span>
+        </button>`;
+    }).join('');
 }
 
 function renderNewRecipeSuggestions() {
@@ -127,8 +161,10 @@ function renderNewRecipeSuggestions() {
     suggestionsStatusEl.textContent = suggestionNotice || (shufflingSuggestions
         ? 'Finding different main courses…'
         : `${visible.length} recipes · Shuffle finds more from TheMealDB`);
-    document.getElementById('planner-suggestions-count').textContent = suggestionsStatus === 'loading'
-        ? '…' : suggestionsStatus === 'error' ? '!' : visible.length;
+    if (activeRecipeSource === 'suggestions') {
+        document.getElementById('planner-suggestions-count').textContent = suggestionsStatus === 'loading'
+            ? '…' : suggestionsStatus === 'error' ? '!' : visible.length;
+    }
     if (suggestionsStatus === 'loading') {
         plannerSuggestionsEl.innerHTML = '<p class="planner-empty-selection">Loading new recipes…</p>';
         return;
@@ -137,19 +173,107 @@ function renderNewRecipeSuggestions() {
         plannerSuggestionsEl.innerHTML = '<div class="planner-empty-selection">Could not load suggestions. <button type="button" data-retry-suggestions>Try again</button></div>';
         return;
     }
-    plannerSuggestionsEl.innerHTML = visible.length ? visible.map(recipe => `
-        <button type="button" class="planner-suggestion-card" data-open-suggestion="${escapeHtml(recipe.id)}">
-            <span class="planner-suggestion-image">
-                ${recipe.imageUrl ? `<img src="${escapeHtml(recipe.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span aria-hidden="true">🍽️</span>'}
-            </span>
-            <span class="planner-suggestion-body">
-                <span class="planner-suggestion-source">${escapeHtml(suggestionMeta(recipe))}</span>
-                <strong>${escapeHtml(recipe.title)}</strong>
-                <span class="planner-suggestion-description">${escapeHtml(recipe.description)}</span>
-                <span class="planner-suggestion-view">View recipe →</span>
-            </span>
-        </button>`).join('') : '<p class="planner-empty-selection">No matching recipes in this batch. Use Shuffle to find more, or choose another category.</p>';
+    plannerSuggestionsEl.innerHTML = visible.length ? recipeSuggestionCards(visible)
+        : '<p class="planner-empty-selection">No matching recipes in this batch. Use Shuffle to find more, or choose another category.</p>';
 }
+
+function recipeSearchText(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function renderBasedCooking() {
+    const ready = basedCookingStatus === 'ready';
+    basedCookingShuffleBtn.disabled = !ready;
+    basedCookingMoreBtn.hidden = true;
+    if (!ready) {
+        basedCookingStatusEl.textContent = '';
+        basedCookingListEl.innerHTML = basedCookingStatus === 'error'
+            ? '<p class="planner-empty-selection">Could not load the local catalog. <button type="button" data-retry-based>Try again</button></p>'
+            : '<p class="planner-empty-selection">Loading the local catalog…</p>';
+        return;
+    }
+    const terms = recipeSearchText(basedCookingSearchEl.value).trim().split(/\s+/).filter(Boolean);
+    const course = basedCookingCourseEl.value;
+    const tag = basedCookingTagEl.value;
+    const filtered = basedCookingRecipes.filter(recipe => (course === 'all' || recipe.category === course)
+        && (!tag || (recipe.tags || []).includes(tag))
+        && terms.every(term => recipeSearchText([recipe.title, ...(recipe.ingredients || []), ...(recipe.tags || [])].join(' ')).includes(term)));
+    const shown = filtered.slice(0, basedCookingVisibleCount);
+    const snapshotDate = basedCookingSnapshot?.committedAt?.slice(0, 10);
+    basedCookingStatusEl.textContent = `${filtered.length} matches · ${basedCookingRecipes.length} recipes stored locally${snapshotDate ? ` · Source updated ${snapshotDate}` : ''}`;
+    if (activeRecipeSource === 'based') document.getElementById('planner-suggestions-count').textContent = filtered.length;
+    basedCookingListEl.innerHTML = shown.length ? recipeSuggestionCards(shown)
+        : '<p class="planner-empty-selection">No matching recipes. Try All recipes, another tag, or a different search.</p>';
+    basedCookingMoreBtn.hidden = filtered.length <= shown.length;
+    basedCookingMoreBtn.textContent = `Show more recipes (${shown.length} of ${filtered.length})`;
+}
+
+async function loadBasedCooking() {
+    if (basedCookingStatus === 'loading') return;
+    basedCookingStatus = 'loading';
+    renderBasedCooking();
+    try {
+        const res = await fetch('/api/recipe-suggestions/based-cooking');
+        const data = await res.json();
+        if (!res.ok || !Array.isArray(data.recipes)) throw new Error('Could not load catalog');
+        basedCookingRecipes = data.recipes;
+        basedCookingSnapshot = data.snapshot;
+        const selectedTag = basedCookingTagEl.value;
+        const tags = [...new Set(data.recipes.flatMap(recipe => recipe.tags || []))].sort();
+        basedCookingTagEl.innerHTML = '<option value="">All tags</option>'
+            + tags.map(tag => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('');
+        basedCookingTagEl.value = tags.includes(selectedTag) ? selectedTag : '';
+        basedCookingStatus = 'ready';
+    } catch {
+        basedCookingStatus = 'error';
+    }
+    renderBasedCooking();
+}
+
+function setRecipeSource(source) {
+    activeRecipeSource = source;
+    recipeSourceTabs.forEach(button => {
+        const active = button.dataset.recipeSource === source;
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+    });
+    document.getElementById('source-suggestions').hidden = source !== 'suggestions';
+    document.getElementById('source-based').hidden = source !== 'based';
+    if (source === 'based') {
+        if (basedCookingStatus === 'idle' || basedCookingStatus === 'error') loadBasedCooking();
+        else renderBasedCooking();
+    } else renderNewRecipeSuggestions();
+}
+
+recipeSourceTabs.forEach((button, index) => {
+    button.addEventListener('click', () => setRecipeSource(button.dataset.recipeSource));
+    button.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? recipeSourceTabs.length - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + recipeSourceTabs.length) % recipeSourceTabs.length;
+        recipeSourceTabs[next].focus();
+        setRecipeSource(recipeSourceTabs[next].dataset.recipeSource);
+    });
+});
+[basedCookingSearchEl, basedCookingCourseEl, basedCookingTagEl].forEach(control => {
+    control.addEventListener(control === basedCookingSearchEl ? 'input' : 'change', () => {
+        basedCookingVisibleCount = 24;
+        renderBasedCooking();
+    });
+});
+basedCookingShuffleBtn.addEventListener('click', () => {
+    for (let i = basedCookingRecipes.length - 1; i > 0; i--) {
+        const other = Math.floor(Math.random() * (i + 1));
+        [basedCookingRecipes[i], basedCookingRecipes[other]] = [basedCookingRecipes[other], basedCookingRecipes[i]];
+    }
+    basedCookingVisibleCount = 24;
+    renderBasedCooking();
+});
+basedCookingMoreBtn.addEventListener('click', () => {
+    basedCookingVisibleCount += 24;
+    renderBasedCooking();
+});
 
 async function loadRecipeSuggestions({ shuffle = false } = {}) {
     if (shufflingSuggestions) return;
@@ -185,24 +309,32 @@ suggestionCategoryEl.addEventListener('change', () => {
 
 function openRecipeSuggestion(id) {
     if (importingSuggestion) return;
-    const recipe = recipeSuggestions.find(item => item.id === id);
+    const recipe = [...recipeSuggestions, ...basedCookingRecipes].find(item => item.id === id);
     if (!recipe) return;
+    const selected = recipe.importedRecipeSlug ? weeklyPlanState.selectedRecipes.includes(recipe.importedRecipeSlug) : recipe.selected;
+    const credits = (Array.isArray(recipe.credits) ? recipe.credits.join(' · ') : recipe.credits || '')
+        .replace(/\s*Snapshot:\s*[a-f0-9]{40}\.?/gi, '');
+    const ingredientRows = recipe.ingredientRows || (recipe.ingredients || []).map(text => ({ kind: 'ingredient', text }));
     activeSuggestion = recipe;
     document.getElementById('suggestion-dialog-content').innerHTML = `
         ${recipe.imageUrl ? `<img class="suggestion-dialog-image" src="${escapeHtml(recipe.imageUrl)}" alt="" referrerpolicy="no-referrer">` : ''}
         <div class="suggestion-dialog-copy">
-            <p class="planner-suggestion-source">Plato principal · ${escapeHtml(suggestionMeta(recipe))}</p>
+            <p class="planner-suggestion-source">${escapeHtml(recipeCourseLabels[recipe.category] || 'Recipe')} · ${escapeHtml(suggestionMeta(recipe))}</p>
             <h2 id="suggestion-dialog-title">${escapeHtml(recipe.title)}</h2>
             <p>${escapeHtml(recipe.description)}</p>
             <section class="suggestion-dialog-ingredients" aria-labelledby="suggestion-ingredients-heading">
                 <h3 id="suggestion-ingredients-heading">Ingredients</h3>
-                <ul>${(recipe.ingredients || []).map(ingredient => `<li>${escapeHtml(ingredient)}</li>`).join('')}</ul>
+                <ul>${ingredientRows.map(row => `<li class="suggestion-ingredient-${row.kind === 'heading' ? 'heading' : row.kind === 'note' ? 'note' : 'item'}">${escapeHtml(row.text)}</li>`).join('')}</ul>
             </section>
+            ${recipe.instructions?.length ? `<details class="suggestion-dialog-method"><summary>Preparation</summary><ol>${recipe.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol></details>` : ''}
+            ${recipe.notes?.length ? `<details class="suggestion-dialog-method"><summary>Recipe notes</summary>${recipe.notes.map(note => `<p>${note.heading ? `<strong>${escapeHtml(note.heading)}</strong><br>` : ''}${escapeHtml(note.text)}</p>`).join('')}</details>` : ''}
+            ${credits ? `<p class="suggestion-dialog-credits">${escapeHtml(credits)}</p>` : ''}
             <a href="${escapeHtml(recipe.sourceUrl)}" target="_blank" rel="noopener noreferrer">View original on ${escapeHtml(recipe.source)} ↗</a>
         </div>`;
     document.getElementById('suggestion-dialog-error').hidden = true;
-    suggestionImportBtn.disabled = false;
-    suggestionImportBtn.textContent = 'Import & add to plan';
+    suggestionImportBtn.disabled = Boolean(selected);
+    suggestionImportBtn.textContent = selected ? 'Already in next week’s plan'
+        : recipe.importedRecipeSlug ? 'Add to plan' : 'Import & add to plan';
     suggestionDialog.showModal();
 }
 
@@ -212,6 +344,14 @@ plannerSuggestionsEl.addEventListener('click', event => {
     if (event.target.closest('[data-retry-suggestions]')) loadRecipeSuggestions();
 });
 plannerSuggestionsEl.addEventListener('error', event => {
+    if (event.target.tagName === 'IMG') event.target.parentElement.innerHTML = '<span aria-hidden="true">🍽️</span>';
+}, true);
+basedCookingListEl.addEventListener('click', event => {
+    const card = event.target.closest('[data-open-suggestion]');
+    if (card) openRecipeSuggestion(card.dataset.openSuggestion);
+    if (event.target.closest('[data-retry-based]')) loadBasedCooking();
+});
+basedCookingListEl.addEventListener('error', event => {
     if (event.target.tagName === 'IMG') event.target.parentElement.innerHTML = '<span aria-hidden="true">🍽️</span>';
 }, true);
 suggestionDialog.addEventListener('error', event => {
@@ -237,8 +377,12 @@ suggestionImportBtn.addEventListener('click', async () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not import recipe');
         weeklyPlanState = data.plan;
-        await loadMealPopularity();
+        await loadMealFavorites();
         recipeSuggestions = data.suggestions;
+        if (data.offlineSuggestion) {
+            basedCookingRecipes = basedCookingRecipes.map(recipe => recipe.id === data.offlineSuggestion.id ? data.offlineSuggestion : recipe);
+            renderBasedCooking();
+        }
         allRecipes = [...allRecipes.filter(item => item.slug !== data.recipe.slug), data.recipe];
         renderWeeklyPlanner();
         renderNewRecipeSuggestions();
@@ -255,47 +399,85 @@ suggestionImportBtn.addEventListener('click', async () => {
     }
 });
 
+function renderMealFavoriteStar(type, id) {
+    const starred = mealFavorites.some(item => item.type === type && item.id === id);
+    const saving = favoriteSaves.has(`${type}:${id}`);
+    const label = starred ? 'Quitar de favoritos' : 'Marcar como favorito';
+    return `<button type="button" class="planner-favorite-star ${starred ? 'is-starred' : ''}" data-star-type="${type}" data-star-id="${escapeHtml(id)}" aria-label="${label}" title="${label}" aria-pressed="${starred}" ${saving || mealFavoritesError ? 'disabled' : ''}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63L21 9.54l-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.93 1.06-6.2L3 9.54l6.22-.91Z"/></svg>
+    </button>`;
+}
+
 function renderMealFavorites(query = '') {
-    if (mealPopularityError) {
-        plannerFavoritesListEl.innerHTML = '<p class="planner-empty-selection">No se pudo leer el historial de selecciones. Vuelve a abrir el plan para reintentar.</p>';
+    if (mealFavoritesError) {
+        plannerFavoritesListEl.innerHTML = '<p class="planner-empty-selection">No se pudieron cargar tus favoritos. Vuelve a abrir el plan para reintentar.</p>';
         return;
     }
-    const favorites = mealPopularity.map(item => {
+    const favorites = mealFavorites.map(item => {
         const meal = item.type === 'recipe'
             ? allRecipes.find(recipe => recipe.slug === item.id)
             : allQuickMeals.find(quick => quick.id === item.id);
-        return meal && { ...item, title: meal.title };
-    }).filter(item => item && (!query || item.title.toLocaleLowerCase('es').includes(query)));
-    plannerFavoritesListEl.innerHTML = favorites.length ? favorites.map(item => {
-        const selected = item.type === 'recipe'
-            ? weeklyPlanState.selectedRecipes.includes(item.id)
-            : weeklyPlanState.selectedQuickMeals.includes(item.id);
-        return `<article class="planner-favorite-card">
-            <div><strong>${escapeHtml(item.title)}</strong><small>Elegido en ${item.count} semana${item.count === 1 ? '' : 's'} · ${item.type === 'quick' ? 'Plato rápido' : 'Receta'}</small></div>
-            <button type="button" class="planner-add-btn ${selected ? 'is-selected' : ''}" data-favorite-type="${item.type}" data-favorite-id="${escapeHtml(item.id)}">${selected ? '✓ En el menú' : 'Añadir'}</button>
-        </article>`;
-    }).join('') : `<p class="planner-empty-selection">${query ? 'Ningún favorito coincide con la búsqueda.' : 'Tus favoritos aparecerán aquí a medida que elijas platos. El historial empieza con tus próximas selecciones.'}</p>`;
+        return meal && { ...item, meal };
+    }).filter(item => item && (!query || item.meal.title.toLocaleLowerCase('es').includes(query)));
+    plannerFavoritesListEl.innerHTML = favorites.length ? favorites.map(item => item.type === 'recipe'
+        ? renderPlannerSuggestion(item.meal) : renderQuickMealSuggestion(item.meal)).join('')
+        : `<p class="planner-empty-selection">${query ? 'Ningún favorito coincide con la búsqueda.' : 'Toca la estrella de un plato para guardarlo en Favoritos.'}</p>`;
 }
 
-async function loadMealPopularity() {
+async function loadMealFavorites() {
     try {
-        const res = await fetch('/api/meal-popularity');
-        if (!res.ok) throw new Error('Could not load meal popularity');
-        mealPopularity = await res.json();
-        mealPopularityError = false;
+        const res = await fetch('/api/meal-favorites');
+        if (!res.ok) throw new Error('Could not load favorites');
+        mealFavorites = await res.json();
+        mealFavoritesError = false;
     } catch (error) {
-        mealPopularityError = true;
+        mealFavoritesError = true;
     }
 }
 
 plannerFavoritesListEl.addEventListener('click', event => {
-    const button = event.target.closest('[data-favorite-type]');
+    const recipeButton = event.target.closest('[data-toggle-recipe]');
+    const quickButton = event.target.closest('[data-toggle-quick]');
+    if (recipeButton) {
+        const id = recipeButton.dataset.toggleRecipe;
+        changePlannerSelection('recipe', id, !weeklyPlanState.selectedRecipes.includes(id));
+    } else if (quickButton) {
+        const id = quickButton.dataset.toggleQuick;
+        changePlannerSelection('quick', id, !weeklyPlanState.selectedQuickMeals.includes(id));
+    }
+});
+
+document.getElementById('planner-screen').addEventListener('click', async event => {
+    const button = event.target.closest('[data-star-type]');
     if (!button) return;
-    const { favoriteType: type, favoriteId: id } = button.dataset;
-    const selected = type === 'recipe'
-        ? weeklyPlanState.selectedRecipes.includes(id)
-        : weeklyPlanState.selectedQuickMeals.includes(id);
-    changePlannerSelection(type, id, !selected);
+    event.preventDefault();
+    const type = button.dataset.starType;
+    const id = button.dataset.starId;
+    const key = `${type}:${id}`;
+    if (favoriteSaves.has(key) || mealFavoritesError) return;
+    const starred = mealFavorites.some(item => item.type === type && item.id === id);
+    favoriteSaves.add(key);
+    button.disabled = true;
+    try {
+        const res = await fetch(`/api/meal-favorites/${type}/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ favorite: !starred }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo guardar el favorito.');
+        mealFavorites = data;
+        showToast(starred ? 'Quitado de favoritos' : 'Guardado en favoritos');
+    } catch (error) {
+        showToast(error.message);
+    } finally {
+        favoriteSaves.delete(key);
+        const scrollPositions = plannerTabPanels.map(panel => panel.scrollTop);
+        renderWeeklyPlanner();
+        plannerTabPanels.forEach((panel, index) => { panel.scrollTop = scrollPositions[index]; });
+        const replacement = [...document.querySelectorAll('[data-star-type]')].find(item => item.dataset.starType === type
+            && item.dataset.starId === id && item.getClientRects().length > 0);
+        if (replacement) replacement.focus({ preventScroll: true });
+    }
 });
 
 function normalizePlannerIngredient(value) {
@@ -339,6 +521,7 @@ function renderPlannerSuggestion(recipe) {
     const selected = weeklyPlanState.selectedRecipes.includes(recipe.slug);
     return `
         <article class="planner-recipe-card ${selected ? 'is-selected' : ''}">
+            ${renderMealFavoriteStar('recipe', recipe.slug)}
             <a class="planner-recipe-image ${recipe.image ? '' : 'planner-recipe-image-empty'}" href="/?recipe=${encodeURIComponent(recipe.slug)}" target="_blank" rel="noopener">
                 ${recipe.image ? `<img src="${recipe.image}" alt="">` : '<span>foto de la receta</span>'}
             </a>
@@ -357,6 +540,7 @@ function renderQuickMealSuggestion(meal) {
     const selected = weeklyPlanState.selectedQuickMeals.includes(meal.id);
     return `
         <article class="planner-quick-card ${selected ? 'is-selected' : ''}">
+            ${renderMealFavoriteStar('quick', meal.id)}
             <div>
                 <strong>${escapeHtml(meal.title)}</strong>
                 <span>${escapeHtml(meal.note || 'Plato rápido')}</span>
@@ -377,6 +561,7 @@ function renderSelectedMeal(meal) {
         : `<strong>${escapeHtml(meal.title)}</strong>`;
     return `
         <article class="planner-selected-card">
+            ${renderMealFavoriteStar(meal.type, meal.id)}
             ${meal.image
                 ? `<a class="planner-selected-image" href="${detailUrl}" target="_blank" rel="noopener"><img src="${meal.image}" alt=""></a>`
                 : '<div class="planner-selected-image planner-recipe-image-empty"><span>foto</span></div>'}
@@ -631,7 +816,7 @@ async function saveWeeklyPlan(selectedRecipes, selectedQuickMeals, orderReady, s
     weeklyPlanState = data;
     renderWeeklyPlanner();
     if (successMessage) showToast(data.selectionHistoryWarning || successMessage);
-    await loadMealPopularity();
+    await loadMealFavorites();
     renderMealFavorites(plannerSearchEl.value.trim().toLocaleLowerCase('es'));
 }
 
@@ -660,6 +845,7 @@ async function loadWeeklyPlanner() {
     plannerListEl.innerHTML = '<p class="planner-empty-selection">Loading next week…</p>';
     plannerSelectedEl.innerHTML = '';
     loadRecipeSuggestions();
+    if (basedCookingStatus === 'ready') loadBasedCooking();
     try {
         const [recipesRes, quickMealsRes, planRes, recurringRes, rulesRes] = await Promise.all([
             fetch('/api/recipes'),
@@ -667,7 +853,7 @@ async function loadWeeklyPlanner() {
             fetch('/api/weekly-plan'),
             fetch('/api/recurring-items'),
             fetch('/api/shopping-rules'),
-            loadMealPopularity(),
+            loadMealFavorites(),
         ]);
         if (!recipesRes.ok || !quickMealsRes.ok || !planRes.ok || !recurringRes.ok || !rulesRes.ok) throw new Error('Could not load next week');
         allRecipes = await recipesRes.json();
@@ -723,7 +909,7 @@ async function createPlannerRequest(type, text) {
     if (type === 'recipe-idea' && !data.generationWarning) {
         const recipesRes = await fetch('/api/recipes');
         if (recipesRes.ok) allRecipes = await recipesRes.json();
-        await loadMealPopularity();
+        await loadMealFavorites();
     }
     renderWeeklyPlanner();
     return data;
@@ -953,7 +1139,7 @@ plannerRequestsListEl.addEventListener('click', async event => {
             weeklyPlanState = data;
             const recipesRes = await fetch('/api/recipes');
             if (recipesRes.ok) allRecipes = await recipesRes.json();
-            await loadMealPopularity();
+            await loadMealFavorites();
             renderWeeklyPlanner();
             showToast(data.selectionHistoryWarning || 'Recipe generated, saved and selected');
         } catch (error) {

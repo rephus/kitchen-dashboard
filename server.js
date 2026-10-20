@@ -8,6 +8,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 const { readRecipeIngredients } = require('./ingredient-normalizer');
 const { createMealSelectionHistory } = require('./meal-selection-history');
+const { createMealFavorites } = require('./meal-favorites');
+const mealFavoritesStore = createMealFavorites({ filePath: path.join(__dirname, 'data', 'meal-favorites.json') });
 const mealSelectionHistory = createMealSelectionHistory({
     filePath: path.join(__dirname, 'data', 'meal-selections.jsonl'),
 });
@@ -750,8 +752,10 @@ function saveWeeklyPlan(data, { selectionSource = 'weekly-planner' } = {}) {
 const RECIPES_DIR = path.join(__dirname, 'recipes');
 const RECIPE_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
 const RECIPE_CATEGORIES = require('./recipe-categories.json');
+const basedCookingCatalog = require('./based-cooking-catalog.json');
 const recipeSuggestionsService = createRecipeSuggestions({
     catalog: require('./recipe-suggestion-catalog.json'),
+    offlineCatalog: basedCookingCatalog.recipes,
     recipesDir: RECIPES_DIR,
     listRecipes, readRecipeFile, getRecipe, uniqueRecipeSlug,
     readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
@@ -1476,6 +1480,52 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
+    if (pathname === '/api/meal-favorites' && req.method === 'GET') {
+        try {
+            res.end(JSON.stringify(mealFavoritesStore.read()));
+        } catch (error) {
+            console.error('Meal favorites error:', error.message);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'No se pudieron leer tus favoritos.' }));
+        }
+        return;
+    }
+    const mealFavoriteMatch = pathname.match(/^\/api\/meal-favorites\/(recipe|quick)\/([^/]+)$/);
+    if (mealFavoriteMatch && req.method === 'PUT') {
+        try {
+            let body = '';
+            await new Promise(resolve => {
+                req.on('data', chunk => body += chunk);
+                req.on('end', resolve);
+            });
+            let data;
+            try { data = JSON.parse(body); } catch {
+                const error = new Error('La petición debe contener JSON válido.');
+                error.statusCode = 400;
+                throw error;
+            }
+            const type = mealFavoriteMatch[1];
+            const id = decodeURIComponent(mealFavoriteMatch[2]);
+            if (typeof data?.favorite !== 'boolean' || !/^[a-zA-Z0-9_-]{1,120}$/.test(id)) {
+                const error = new Error('Indica un plato válido y si debe ser favorito.');
+                error.statusCode = 400;
+                throw error;
+            }
+            const meal = type === 'recipe' ? getRecipe(id) : listQuickMeals().find(item => item.id === id);
+            if (!meal || (type === 'recipe' && meal.slug !== id)) {
+                const error = new Error('Plato no encontrado.');
+                error.statusCode = 404;
+                throw error;
+            }
+            res.end(JSON.stringify(mealFavoritesStore.set(type, id, data?.favorite)));
+        } catch (error) {
+            console.error('Save meal favorite error:', error.message);
+            res.statusCode = error.statusCode || 500;
+            res.end(JSON.stringify({ error: error.statusCode ? error.message : 'No se pudo guardar el favorito.' }));
+        }
+        return;
+    }
+
     if (pathname === '/api/meal-popularity' && req.method === 'GET') {
         try {
             res.end(JSON.stringify(mealSelectionHistory.getPopularity()));
@@ -1736,7 +1786,13 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
-    // Curated main courses; importing saves the recipe and selects it in one operation.
+    // Local catalog browsing and importing never require an upstream API call.
+    if (pathname === '/api/recipe-suggestions/based-cooking' && req.method === 'GET') {
+        res.end(JSON.stringify({ snapshot: basedCookingCatalog.snapshot,
+            classification: basedCookingCatalog.classification,
+            recipes: recipeSuggestionsService.listOfflineSuggestions() }));
+        return;
+    }
     if (pathname === '/api/recipe-suggestions' && req.method === 'GET') {
         res.end(JSON.stringify(recipeSuggestionsService.listSuggestions()));
         return;

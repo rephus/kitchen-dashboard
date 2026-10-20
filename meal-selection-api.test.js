@@ -128,6 +128,39 @@ test('importing a suggested main records one selection and preserves provenance 
     assert.ok(!(await request('/api/recipe-suggestions')).data.some(item => item.id === suggestion.id));
 });
 
+test('the complete offline catalog can be browsed and imported with its original course and quantities', async t => {
+    const { directory, request, initialPlan, events } = await fixture(t);
+    const source = require('./based-cooking-catalog.json');
+    const catalog = await request('/api/recipe-suggestions/based-cooking');
+    assert.equal(catalog.status, 200);
+    assert.equal(catalog.data.recipes.length, source.recipes.length);
+    assert.ok(catalog.data.recipes.length > 400);
+    assert.equal(catalog.data.snapshot.commit, source.snapshot.commit);
+    assert.deepEqual((await request('/api/weekly-plan')).data.selectedRecipes, initialPlan.selectedRecipes);
+    assert.equal(events().length, 0);
+    const candidate = source.recipes.find((recipe, index) => index > 15 && recipe.category === 'desserts');
+    assert.ok(candidate);
+    const preview = catalog.data.recipes.find(recipe => recipe.id === candidate.id);
+    assert.deepEqual(preview.ingredients, candidate.recipe.ingredients);
+    assert.deepEqual(preview.instructions, candidate.recipe.instructions);
+    assert.equal(preview.importedRecipeSlug, null);
+    const route = `/api/recipe-suggestions/${candidate.id}/import`;
+    const imported = await request(route, 'POST');
+    assert.equal(imported.status, 200);
+    assert.equal(imported.data.recipe.category, 'desserts');
+    assert.equal(imported.data.recipe.sourceUrl, candidate.sourceUrl);
+    assert.ok(imported.data.plan.selectedRecipes.includes(imported.data.recipe.slug));
+    assert.equal(imported.data.plan.orderReady, false);
+    assert.equal(imported.data.offlineSuggestion.importedRecipeSlug, imported.data.recipe.slug);
+    assert.equal(imported.data.offlineSuggestion.selected, true);
+    assert.equal((await request(route, 'POST')).data.alreadyImported, true);
+    assert.equal(events().length, 1);
+    const refreshed = (await request('/api/recipe-suggestions/based-cooking')).data.recipes;
+    assert.equal(refreshed.length, source.recipes.length);
+    assert.equal(refreshed.find(recipe => recipe.id === candidate.id).selected, true);
+    assert.equal(fs.readdirSync(path.join(directory, 'recipes')).length, 3);
+});
+
 test('unreadable history warns while saving a selection and keeps legacy recipe metadata edits compatible', async t => {
     const { directory, request, historyFile, initialPlan, errors } = await fixture(t);
     fs.mkdirSync(historyFile);
