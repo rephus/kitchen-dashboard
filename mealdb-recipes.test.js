@@ -29,6 +29,12 @@ function fixture({ ids = ['1', '2', '3'], meals = new Map(), handle, random = ()
             await new Promise(resolve => setImmediate(resolve));
             const custom = handle && await handle(url, calls);
             if (custom) return custom;
+            if (url.pathname.endsWith('/list.php')) return response([
+                { strArea: 'British', strCountry: 'United Kingdom' },
+                { strArea: 'Spanish', strCountry: 'Spain' },
+                { strArea: 'French', strCountry: 'France' },
+                { strArea: 'Canadian', strCountry: 'Canada' },
+            ]);
             if (url.pathname.endsWith('/filter.php')) return response(ids.map(id => ({ idMeal: id })));
             const id = url.searchParams.get('i');
             return response([meals.has(id) ? meals.get(id) : meal(id)]);
@@ -295,4 +301,140 @@ test('preserves clear mains that include sauces or dips, plus hearty soups and s
     const f = fixture({ ids, meals: new Map(mains.map((title, index) => [String(index + 1), meal(index + 1, { strMeal: title })])) });
     const result = await f.provider.fetchSuggestions({ category: 'Chicken', count: mains.length });
     assert.deepEqual(result.map(recipe => recipe.title), mains);
+});
+
+test('lists cached official country labels, merges repeated areas, and supports safe source punctuation and legacy responses', async () => {
+    const f = fixture({ handle: url => url.pathname.endsWith('/list.php') ? response([
+        { strArea: 'Dominican', strCountry: 'Dominican Republic' },
+        { strArea: 'Spanish', strCountry: 'Spain' },
+        { strArea: 'Dominican', strCountry: 'Dominica' },
+        { strArea: 'Dominican', strCountry: 'Dominica' },
+        { strArea: 'Antiguan, Barbudan', strCountry: 'Antigua and Barbuda' },
+        { strArea: 'Ivorian', strCountry: "Côte d'Ivoire" },
+        { strArea: 'British' },
+        { strArea: '<script>Bad</script>', strCountry: 'Unsafe' },
+        { strArea: 'Injected\nArea', strCountry: 'Unsafe' },
+        { strArea: 'Unknown', strCountry: 'Unknown' },
+        { strArea: 'Broken', strCountry: 7 },
+        null,
+    ]) : undefined });
+    const first = await f.provider.listAreas();
+    assert.deepEqual(first, [
+        { area: 'Antiguan, Barbudan', country: 'Antigua and Barbuda' },
+        { area: 'British', country: 'British' },
+        { area: 'Ivorian', country: "Côte d'Ivoire" },
+        { area: 'Dominican', country: 'Dominica / Dominican Republic' },
+        { area: 'Spanish', country: 'Spain' },
+    ]);
+    first[0].country = 'Changed by a caller';
+    const second = await f.provider.listAreas();
+    assert.equal(second[0].country, 'Antigua and Barbuda');
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls[0].url.pathname, '/api/json/v1/1/list.php');
+    assert.equal(f.calls[0].url.search, '?a=list');
+});
+
+test('country filtering keeps only matching complete main courses while preserving source provenance', async () => {
+    const invalid = [
+        { strArea: 'British' }, { strCategory: 'Dessert' }, { strCategory: 'Starter' },
+        { strTags: 'Side' }, { strMeal: 'Guacamole' }, { strInstructions: '' },
+    ];
+    const ids = invalid.map((_, index) => String(index + 1)).concat(['7', '8']);
+    const meals = new Map(ids.map(id => [id, meal(id, { strArea: 'Spanish', ...(invalid[Number(id) - 1] || {}) })]));
+    const f = fixture({ ids, meals });
+    const result = await f.provider.fetchSuggestions({ area: 'Spanish', count: 3 });
+    assert.deepEqual(result.map(recipe => recipe.id), ['mealdb-7', 'mealdb-8']);
+    assert.ok(result.every(recipe => recipe.cuisine === 'Spanish' && recipe.area === 'Spanish' && recipe.country === 'Spain' && recipe.category === 'mains'));
+    const filters = f.calls.filter(call => call.url.pathname.endsWith('/filter.php'));
+    assert.equal(filters.length, 1);
+    assert.equal(filters[0].url.search, '?a=Spanish');
+    assert.ok(f.calls.every(call => !call.url.searchParams.has('c')));
+});
+
+test('country and existing category filters work together and exclude previous IDs before lookup', async () => {
+    const f = fixture({ ids: ['1', '2', '3', '4'], meals: new Map([
+        ['1', meal('1', { strArea: 'Spanish' })],
+        ['2', meal('2', { strArea: 'Spanish' })],
+        ['3', meal('3', { strArea: 'Spanish', strCategory: 'Pork' })],
+        ['4', meal('4', { strArea: 'Spanish' })],
+    ]) });
+    const first = await f.provider.fetchSuggestions({ area: 'Spanish', category: 'Chicken', excludeIds: ['mealdb-1', '2'], count: 1 });
+    assert.deepEqual(first.map(recipe => recipe.id), ['mealdb-4']);
+    const second = await f.provider.fetchSuggestions({ area: 'Spanish', category: 'Chicken', excludeIds: ['1', '2', 'mealdb-4'], count: 1 });
+    assert.deepEqual(second, []);
+    assert.equal(f.calls.filter(call => call.url.pathname.endsWith('/list.php')).length, 1);
+    assert.equal(f.calls.filter(call => call.url.pathname.endsWith('/filter.php')).length, 1);
+    assert.ok(f.calls.filter(call => call.url.pathname.endsWith('/lookup.php')).every(call => !['1', '2'].includes(call.url.searchParams.get('i'))));
+});
+
+test('uses only the official country alias when a documented adjective returns no recipes', async () => {
+    const f = fixture({ ids: ['1', '2'], meals: new Map([
+        ['1', meal('1', { strArea: 'France' })],
+        ['2', meal('2', { strArea: 'Spanish' })],
+    ]), handle: url => url.searchParams.get('a') === 'French' ? response(null) : undefined });
+    const result = await f.provider.fetchSuggestions({ area: 'French', count: 2 });
+    assert.deepEqual(result.map(recipe => recipe.id), ['mealdb-1']);
+    assert.equal(result[0].cuisine, 'France');
+    assert.equal(result[0].area, 'French');
+    assert.equal(result[0].country, 'France');
+    const filters = f.calls.filter(call => call.url.pathname.endsWith('/filter.php'));
+    assert.deepEqual(filters.map(call => call.url.searchParams.get('a')), ['French', 'France']);
+});
+
+test('empty countries return an empty result instead of falling back to another cuisine', async () => {
+    const f = fixture({ handle: url => url.pathname.endsWith('/filter.php') ? response(null) : undefined });
+    assert.deepEqual(await f.provider.fetchSuggestions({ area: 'Spanish' }), []);
+    assert.deepEqual(f.calls.filter(call => call.url.pathname.endsWith('/filter.php')).map(call => call.url.searchParams.get('a')), ['Spanish', 'Spain']);
+    assert.equal(f.calls.filter(call => call.url.pathname.endsWith('/lookup.php')).length, 0);
+});
+
+test('rejects invalid or unsupported country filters without arbitrary upstream requests', async () => {
+    const f = fixture();
+    for (const area of [null, 12, '', '../Spanish', '<b>Spanish</b>', 'Spanish\n']) {
+        await assert.rejects(f.provider.fetchSuggestions({ area }), error => error.statusCode === 400);
+    }
+    assert.equal(f.calls.length, 0);
+    await assert.rejects(f.provider.fetchSuggestions({ area: 'Atlantis' }), error => error.statusCode === 400);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls[0].url.search, '?a=list');
+});
+
+test('invalid or unavailable country lists give a friendly retryable UI error without poisoning the cache', async () => {
+    for (const payload of [null, [], [{ strArea: 1 }], [{ strArea: '<img src=x>', strCountry: 'Bad' }]]) {
+        let invalid = true;
+        const f = fixture({ handle: url => url.pathname.endsWith('/list.php') && invalid ? response(payload) : undefined });
+        await assert.rejects(f.provider.listAreas(), error => error.statusCode === 502 && /Could not load countries.*try again/.test(error.message));
+        invalid = false;
+        assert.ok((await f.provider.listAreas()).some(item => item.area === 'Spanish'));
+    }
+    const f = fixture({ handle: url => url.pathname.endsWith('/list.php') ? response(null, { status: 503 }) : undefined });
+    await assert.rejects(f.provider.fetchSuggestions({ area: 'Spanish' }), /Could not load countries/);
+    assert.equal(f.calls.length, 2);
+    assert.ok(f.calls.every(call => call.url.pathname.endsWith('/list.php')));
+});
+
+test('refreshes the country list and country recipe IDs after one hour', async () => {
+    const originalNow = Date.now;
+    let now = originalNow();
+    Date.now = () => now;
+    try {
+        const f = fixture({ meals: new Map([['1', meal('1', { strArea: 'Spanish' })]]) });
+        await f.provider.fetchSuggestions({ area: 'Spanish', count: 1 });
+        now += 60 * 60 * 1000 + 1;
+        await f.provider.fetchSuggestions({ area: 'Spanish', count: 1 });
+        assert.equal(f.calls.filter(call => call.url.pathname.endsWith('/list.php')).length, 2);
+        assert.equal(f.calls.filter(call => call.url.pathname.endsWith('/filter.php')).length, 2);
+    } finally { Date.now = originalNow; }
+});
+
+test('country-list requests share a bounded cache fill and retain the existing request timeout', async () => {
+    const f = fixture();
+    const [first, second] = await Promise.all([f.provider.listAreas(), f.provider.listAreas()]);
+    assert.deepEqual(first, second);
+    assert.equal(f.calls.length, 1);
+    await withVirtualTimeouts(async ({ elapsed }) => {
+        const provider = createMealDbProvider({ fetchImpl: () => new Promise(() => {}) });
+        await assert.rejects(provider.listAreas(), /Could not load countries/);
+        assert.equal(elapsed(), 16000);
+    });
 });

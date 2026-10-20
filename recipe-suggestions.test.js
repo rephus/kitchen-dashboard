@@ -118,8 +118,9 @@ test('shuffle persists new source recipes across restart without changing the me
     const f = fixture(t, { fetchSuggestions: async options => { request = options; return [discovered()]; } });
     f.meta.set('existing', { suggestion_id: 'mealdb-999' });
     const previous = structuredClone(f.getPlan());
-    const fresh = await f.service.shuffleSuggestions({ category: 'Chicken', excludeIds: ['visible-id'] });
+    const fresh = await f.service.shuffleSuggestions({ category: 'Chicken', area: 'Spanish', excludeIds: ['visible-id'] });
     assert.equal(request.category, 'Chicken');
+    assert.equal(request.area, 'Spanish');
     assert.ok(request.excludeIds.includes('visible-id'));
     assert.ok(request.excludeIds.includes('new-main'));
     assert.ok(request.excludeIds.includes('mealdb-999'));

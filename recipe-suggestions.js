@@ -101,7 +101,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
         } catch { return false; }
     }
 
-    async function shuffleSuggestions({ category = 'any', excludeIds = [] } = {}) {
+    async function shuffleSuggestions({ category = 'any', area = 'any', excludeIds = [] } = {}) {
         if (!Array.isArray(excludeIds) || excludeIds.length > 100
             || excludeIds.some(id => typeof id !== 'string' || !/^[a-z0-9-]{1,100}$/.test(id))) {
             throw Object.assign(new Error('Invalid recipe exclusions'), { statusCode: 400 });
@@ -112,7 +112,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
         try {
             const importedIds = listRecipes().map(item => readRecipeFile(item.slug)?.meta.suggestion_id).filter(Boolean);
             const excluded = new Set([...excludeIds, ...suggestions.map(item => item.id), ...importedIds]);
-            const fresh = await fetchSuggestions({ category, excludeIds: [...excluded], count: 15 });
+            const fresh = await fetchSuggestions({ category, area, excludeIds: [...excluded], count: 15 });
             const seen = new Set();
             const available = fresh.filter(item => {
                 if (item.category !== 'mains' || excluded.has(item.id) || seen.has(item.id) || findExisting(item)) return false;
@@ -121,7 +121,7 @@ function createRecipeSuggestions({ catalog, recipesDir, listRecipes, readRecipeF
                 return true;
             }).slice(0, 15);
             if (!available.length) {
-                throw Object.assign(new Error('No different main courses found. Try another category.'), { statusCode: 422 });
+                throw Object.assign(new Error('No different main courses found. Try another country.'), { statusCode: 422 });
             }
             const cached = [...available, ...suggestions.filter(item => !seen.has(item.id))]
                 .filter(item => /^mealdb-\d+$/.test(item.id)).slice(0, 200);

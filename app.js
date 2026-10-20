@@ -75,7 +75,7 @@ const plannerSearchEl = document.getElementById('planner-search');
 const plannerSuggestionsEl = document.getElementById('planner-suggestions-list');
 const suggestionDialog = document.getElementById('planner-suggestion-dialog');
 const suggestionImportBtn = document.getElementById('suggestion-import-btn');
-const suggestionCategoryEl = document.getElementById('planner-suggestion-category');
+const suggestionCountryEl = document.getElementById('planner-suggestion-country');
 const shuffleSuggestionsBtn = document.getElementById('planner-shuffle-suggestions');
 const suggestionsStatusEl = document.getElementById('planner-suggestions-status');
 const recipeSourceTabs = [...document.querySelectorAll('[data-recipe-source]')];
@@ -118,6 +118,9 @@ let activeSuggestion = null;
 let importingSuggestion = false;
 let shufflingSuggestions = false;
 let suggestionNotice = '';
+let recipeCountries = [];
+let recipeCountriesStatus = 'idle';
+let displayedSuggestionArea = 'any';
 let activeRecipeSource = 'suggestions';
 let basedCookingRecipes = [];
 let basedCookingStatus = 'idle';
@@ -150,17 +153,16 @@ function recipeSuggestionCards(recipes) {
 }
 
 function renderNewRecipeSuggestions() {
-    const category = suggestionCategoryEl.value;
-    const visible = recipeSuggestions.filter(recipe => category === 'any'
-        || recipe.mealCategory === category
-        || (recipe.mealCategories || []).includes(category)
-        || (category === 'Vegetarian' && recipe.mealCategory === 'Vegan'));
+    const area = suggestionCountryEl.value;
+    const country = recipeCountries.find(item => item.area === area)?.country || area;
+    const visible = recipeSuggestions.filter(recipe => area === 'any'
+        || recipe.area === area || recipe.cuisine === area || recipe.cuisine === country);
     shuffleSuggestionsBtn.disabled = shufflingSuggestions || suggestionsStatus === 'loading';
     shuffleSuggestionsBtn.textContent = shufflingSuggestions ? 'Finding recipes…' : '↻ Shuffle';
-    suggestionCategoryEl.disabled = shufflingSuggestions;
+    suggestionCountryEl.disabled = shufflingSuggestions || suggestionsStatus === 'loading' || recipeCountriesStatus !== 'ready';
     suggestionsStatusEl.textContent = suggestionNotice || (shufflingSuggestions
-        ? 'Finding different main courses…'
-        : `${visible.length} recipes · Shuffle finds more from TheMealDB`);
+        ? `Finding main courses${area === 'any' ? '' : ` from ${country}`}…`
+        : `${visible.length} recipes · Shuffle finds more${area === 'any' ? ' from TheMealDB' : ` from ${country}`}`);
     if (activeRecipeSource === 'suggestions') {
         document.getElementById('planner-suggestions-count').textContent = suggestionsStatus === 'loading'
             ? '…' : suggestionsStatus === 'error' ? '!' : visible.length;
@@ -174,8 +176,32 @@ function renderNewRecipeSuggestions() {
         return;
     }
     plannerSuggestionsEl.innerHTML = visible.length ? recipeSuggestionCards(visible)
-        : '<p class="planner-empty-selection">No matching recipes in this batch. Use Shuffle to find more, or choose another category.</p>';
+        : '<p class="planner-empty-selection">No matching recipes in this batch. Use Shuffle to find more, or choose another country.</p>';
 }
+
+async function loadRecipeCountries() {
+    if (recipeCountriesStatus === 'loading') return;
+    recipeCountriesStatus = 'loading';
+    document.getElementById('planner-countries-error').hidden = true;
+    renderNewRecipeSuggestions();
+    try {
+        const res = await fetch('/api/recipe-suggestions/countries');
+        const data = await res.json();
+        if (!res.ok || !Array.isArray(data)) throw new Error('Could not load countries');
+        recipeCountries = data;
+        const selectedArea = suggestionCountryEl.value;
+        suggestionCountryEl.innerHTML = '<option value="any">All countries</option>'
+            + data.map(item => `<option value="${escapeHtml(item.area)}">${escapeHtml(item.country)}</option>`).join('');
+        suggestionCountryEl.value = data.some(item => item.area === selectedArea) ? selectedArea : 'any';
+        recipeCountriesStatus = 'ready';
+    } catch {
+        recipeCountriesStatus = 'error';
+        document.getElementById('planner-countries-error').hidden = false;
+    }
+    renderNewRecipeSuggestions();
+}
+
+document.getElementById('planner-retry-countries').addEventListener('click', loadRecipeCountries);
 
 function recipeSearchText(value) {
     return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -242,7 +268,10 @@ function setRecipeSource(source) {
     if (source === 'based') {
         if (basedCookingStatus === 'idle' || basedCookingStatus === 'error') loadBasedCooking();
         else renderBasedCooking();
-    } else renderNewRecipeSuggestions();
+    } else {
+        if (recipeCountriesStatus === 'idle' || recipeCountriesStatus === 'error') loadRecipeCountries();
+        renderNewRecipeSuggestions();
+    }
 }
 
 recipeSourceTabs.forEach((button, index) => {
@@ -279,21 +308,31 @@ async function loadRecipeSuggestions({ shuffle = false } = {}) {
     if (shufflingSuggestions) return;
     suggestionNotice = '';
     if (shuffle) shufflingSuggestions = true;
-    else suggestionsStatus = 'loading';
+    else {
+        suggestionsStatus = 'loading';
+        suggestionCountryEl.value = 'any';
+        displayedSuggestionArea = 'any';
+    }
+    const requestedArea = suggestionCountryEl.value;
+    const requestedCountry = recipeCountries.find(item => item.area === requestedArea)?.country || requestedArea;
     renderNewRecipeSuggestions();
     try {
         const res = await fetch(shuffle ? '/api/recipe-suggestions/shuffle' : '/api/recipe-suggestions', shuffle ? {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category: suggestionCategoryEl.value, excludeIds: recipeSuggestions.map(item => item.id) }),
+            body: JSON.stringify({ area: requestedArea, excludeIds: recipeSuggestions.map(item => item.id) }),
         } : undefined);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not load suggestions');
         recipeSuggestions = data;
         suggestionsStatus = 'ready';
-        if (shuffle) suggestionNotice = `${data.length} different recipes from TheMealDB. Open one to learn more about the dish.`;
+        displayedSuggestionArea = requestedArea;
+        if (shuffle) suggestionNotice = `${data.length} different main courses${requestedArea === 'any' ? ' from TheMealDB' : ` from ${requestedCountry}`}.`;
     } catch (error) {
-        if (shuffle) suggestionNotice = `${error.message} Your previous suggestions are still here.`;
+        if (shuffle) {
+            suggestionCountryEl.value = displayedSuggestionArea;
+            suggestionNotice = `${error.message} Your previous suggestions are still here.`;
+        }
         else suggestionsStatus = 'error';
     } finally {
         shufflingSuggestions = false;
@@ -302,10 +341,7 @@ async function loadRecipeSuggestions({ shuffle = false } = {}) {
 }
 
 shuffleSuggestionsBtn.addEventListener('click', () => loadRecipeSuggestions({ shuffle: true }));
-suggestionCategoryEl.addEventListener('change', () => {
-    suggestionNotice = '';
-    renderNewRecipeSuggestions();
-});
+suggestionCountryEl.addEventListener('change', () => loadRecipeSuggestions({ shuffle: true }));
 
 function openRecipeSuggestion(id) {
     if (importingSuggestion) return;
@@ -490,6 +526,8 @@ function setPlannerTab(tab) {
     plannerTabPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.plannerPanel === tab));
     const activePanel = plannerTabPanels.find(panel => panel.dataset.plannerPanel === tab);
     if (activePanel) activePanel.scrollTop = 0;
+    if (tab === 'suggestions' && activeRecipeSource === 'suggestions'
+        && (recipeCountriesStatus === 'idle' || recipeCountriesStatus === 'error')) loadRecipeCountries();
 }
 
 function setPlannerFilter(filter) {

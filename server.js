@@ -753,6 +753,7 @@ const RECIPES_DIR = path.join(__dirname, 'recipes');
 const RECIPE_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
 const RECIPE_CATEGORIES = require('./recipe-categories.json');
 const basedCookingCatalog = require('./based-cooking-catalog.json');
+const mealDbProvider = createMealDbProvider();
 const recipeSuggestionsService = createRecipeSuggestions({
     catalog: require('./recipe-suggestion-catalog.json'),
     offlineCatalog: basedCookingCatalog.recipes,
@@ -760,7 +761,7 @@ const recipeSuggestionsService = createRecipeSuggestions({
     listRecipes, readRecipeFile, getRecipe, uniqueRecipeSlug,
     readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
     cacheFile: path.join(__dirname, 'data', 'recipe-suggestion-cache.json'),
-    fetchSuggestions: createMealDbProvider().fetchSuggestions,
+    fetchSuggestions: mealDbProvider.fetchSuggestions,
 });
 
 function getRecipeCategory(meta) {
@@ -1786,6 +1787,15 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
+    if (pathname === '/api/recipe-suggestions/countries' && req.method === 'GET') {
+        try {
+            res.end(JSON.stringify(await mealDbProvider.listAreas()));
+        } catch (error) {
+            res.statusCode = 502;
+            res.end(JSON.stringify({ error: 'Could not load recipe countries. Please try again.' }));
+        }
+        return;
+    }
     // Local catalog browsing and importing never require an upstream API call.
     if (pathname === '/api/recipe-suggestions/based-cooking' && req.method === 'GET') {
         res.end(JSON.stringify({ snapshot: basedCookingCatalog.snapshot,

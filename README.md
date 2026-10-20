@@ -63,7 +63,8 @@ and select it for next week. Imported recipes disappear from the suggestions;
 retrying an import reuses the saved recipe. Changes to the menu require another
 shopping review before the order is ready.
 
-Choose a category and press **Shuffle** to request different main courses from
+Choose a **Country** to load main courses from that cuisine, then press **Shuffle**
+for different recipes from the same country, using
 [TheMealDB's documented V1 API](https://www.themealdb.com/api.php). It excludes
 earlier discoveries and imported recipes, rejects incomplete recipes and explicit
 starter/side/dessert/breakfast tags, and preserves the source's quantities and
@@ -74,8 +75,9 @@ from TheMealDB stay in their original language.
 The initial Allrecipes snapshots live in `recipe-suggestion-catalog.json`.
 Discoveries are cached in `data/recipe-suggestion-cache.json` (up to 200 recipes),
 so they survive restarts and can be imported without another upstream request.
-A failed shuffle keeps the previous suggestions. The category filter affects the
-current batch and the next shuffle. Suggestions refresh when you request them.
+A failed shuffle keeps the previous suggestions and country. The country list
+comes from TheMealDB, and selected-country requests only accept matching cuisine
+details. The existing main-course category API option remains supported.
 
 The **Based Cooking** subtab browses a complete local snapshot of the public-domain
 [Based Cooking collection](https://github.com/LukeSmithxyz/based.cooking). Search

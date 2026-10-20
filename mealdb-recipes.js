@@ -61,14 +61,16 @@ function originalSourceUrl(value) {
     } catch { return ''; }
 }
 
-function suggestionFromMeal(meal, requestedCategory) {
+function suggestionFromMeal(meal, requestedCategory, requestedArea) {
     if (!meal || typeof meal !== 'object' || Array.isArray(meal)) return null;
     const id = meal.idMeal;
     const title = plainText(meal.strMeal);
     const category = plainText(meal.strCategory);
+    const cuisine = plainText(meal.strArea);
     if (typeof id !== 'string' || !/^\d{1,12}$/.test(id) || !title || title.length > 250
         || !MAIN_CATEGORIES.includes(category) || (requestedCategory !== 'any' && category !== requestedCategory)
-        || !isMainCourseTitle(title)) return null;
+        || !isMainCourseTitle(title)
+        || (requestedArea && !requestedArea.aliases.includes(cuisine))) return null;
     if (typeof meal.strTags === 'string' && meal.strTags.split(/[,;|]/).some(tag => NON_MAIN_TAG.test(tag.trim()))) return null;
     if (typeof meal.strInstructions !== 'string' || !meal.strInstructions.trim()) return null;
 
@@ -86,7 +88,6 @@ function suggestionFromMeal(meal, requestedCategory) {
         .replace(/<br\s*\/?\s*>|<\/p\s*>/gi, '\n\n')
         .split(/\n\s*\n/).map(plainText).filter(Boolean);
     if (!ingredients.length || !instructions.length) return null;
-    const cuisine = plainText(meal.strArea);
     const image = imageUrl(meal.strMealThumb);
     const upstreamUrl = originalSourceUrl(meal.strSource);
     return {
@@ -94,6 +95,7 @@ function suggestionFromMeal(meal, requestedCategory) {
         sourceUrl: `https://www.themealdb.com/meal.php?c=${id}`,
         description: `${cuisine && cuisine !== 'Unknown' ? `${cuisine} cuisine. ` : ''}${category} main course. Ingredients include ${ingredientNames.slice(0, 3).join(', ')}.`,
         imageUrl: image, category: 'mains', mealCategory: category, cuisine,
+        ...(requestedArea ? { area: requestedArea.area, country: requestedArea.country } : {}),
         totalMinutes: null, servings: null,
         ...(upstreamUrl ? { originalSourceUrl: upstreamUrl } : {}),
         recipe: { name: title, ingredients, instructions, servings: '', totalTime: '', imageUrl: image },
@@ -161,6 +163,9 @@ function createMealDbProvider({ fetchImpl = global.fetch, random = Math.random, 
     if (typeof apiKey !== 'string' || !/^[a-z0-9_-]{1,100}$/i.test(apiKey)) throw new Error('Invalid TheMealDB API key');
     const baseUrl = `https://www.themealdb.com/api/json/v1/${apiKey}/`;
     const categoryCache = new Map();
+    const areaIdsCache = new Map();
+    let areaIndexCache;
+    let areaIndexPending;
 
     async function request(endpoint, parameters, deadline) {
         let lastError;
@@ -210,16 +215,86 @@ function createMealDbProvider({ fetchImpl = global.fetch, random = Math.random, 
         return ids;
     }
 
-    async function fetchSuggestions({ category = 'any', excludeIds = [], count = 15 } = {}) {
+    function areaName(value) {
+        if (typeof value !== 'string' || /[\u0000-\u001f\u007f<>]/.test(value)) return '';
+        const text = value.trim();
+        return /^[\p{L}][\p{L}\p{M} ,.'’()&-]{0,99}$/u.test(text) && !/^(?:unknown|any)$/i.test(text) ? text : '';
+    }
+
+    async function areaIndex(deadline) {
+        if (areaIndexCache && areaIndexCache.expiresAt > Date.now()) return areaIndexCache.areas;
+        if (areaIndexPending) return areaIndexPending;
+        areaIndexPending = (async () => {
+            try {
+                const entries = await request('list.php', { a: 'list' }, deadline);
+                const byArea = new Map();
+                for (const entry of entries.slice(0, 500)) {
+                    const area = areaName(entry?.strArea);
+                    const country = entry?.strCountry === undefined || entry?.strCountry === null
+                        ? area : areaName(entry.strCountry);
+                    if (!area || !country) continue;
+                    if (!byArea.has(area)) byArea.set(area, new Set());
+                    byArea.get(area).add(country);
+                }
+                if (!byArea.size) throw new Error('No valid country data');
+                const areas = [...byArea].map(([area, countries]) => ({
+                    area, country: [...countries].sort().join(' / '), aliases: [...new Set([area, ...countries])],
+                })).sort((left, right) => left.country.localeCompare(right.country, 'en'));
+                areaIndexCache = { areas, expiresAt: Date.now() + CATEGORY_TTL_MS };
+                areaIdsCache.clear();
+                return areas;
+            } catch {
+                throw Object.assign(new Error('Could not load countries from TheMealDB. Please try again.'), { statusCode: 502 });
+            } finally {
+                areaIndexPending = undefined;
+            }
+        })();
+        return areaIndexPending;
+    }
+
+    async function listAreas() {
+        return (await areaIndex(Date.now() + CALL_TIMEOUT_MS)).map(({ area, country }) => ({ area, country }));
+    }
+
+    async function areaIds(record, deadline) {
+        const cached = areaIdsCache.get(record.area);
+        if (cached && cached.expiresAt > Date.now()) return cached.ids;
+        const ids = meals => meals.map(meal => meal?.idMeal)
+            .filter(id => typeof id === 'string' && /^\d{1,12}$/.test(id));
+        let found = ids(await request('filter.php', { a: record.area }, deadline));
+        // Some official area labels (French/American) currently return no rows,
+        // while the source's own country aliases (France/United States) work.
+        // Only source-provided aliases are tried; another cuisine is never used.
+        if (!found.length) {
+            for (const alias of record.aliases.filter(value => value !== record.area)) {
+                if (Date.now() >= deadline) break;
+                found.push(...ids(await request('filter.php', { a: alias }, deadline)));
+            }
+        }
+        const result = [...new Set(found)];
+        areaIdsCache.set(record.area, { ids: result, expiresAt: Date.now() + CATEGORY_TTL_MS });
+        return result;
+    }
+
+    async function fetchSuggestions({ category = 'any', area = 'any', excludeIds = [], count = 15 } = {}) {
         if (category !== 'any' && !MAIN_CATEGORIES.includes(category)) {
             const error = new Error('Choose a supported main-course category');
             error.statusCode = 400;
             throw error;
         }
+        if (area !== 'any' && !areaName(area)) {
+            throw Object.assign(new Error('Choose a supported country or cuisine'), { statusCode: 400 });
+        }
         if (!Number.isInteger(count) || count < 1 || count > 20) throw new Error('Choose between 1 and 20 recipe suggestions');
         const deadline = Date.now() + CALL_TIMEOUT_MS;
-        const categories = category === 'any' ? MAIN_CATEGORIES : [category];
-        const categoryResults = await mapConcurrent(categories, value => categoryIds(value, deadline));
+        let requestedArea;
+        if (area !== 'any') {
+            requestedArea = (await areaIndex(deadline)).find(record => record.area === area);
+            if (!requestedArea) throw Object.assign(new Error('Choose a supported country or cuisine'), { statusCode: 400 });
+        }
+        const categories = requestedArea ? [requestedArea] : category === 'any' ? MAIN_CATEGORIES : [category];
+        const categoryResults = await mapConcurrent(categories, value => requestedArea
+            ? areaIds(value, deadline) : categoryIds(value, deadline));
         if (categoryResults.every(result => result.error)) throw new Error('TheMealDB is temporarily unavailable');
         const excluded = new Set(Array.isArray(excludeIds) ? excludeIds.map(String) : []);
         const ids = shuffle([...new Set(categoryResults.flatMap(result => result.value || []))], random)
@@ -237,7 +312,7 @@ function createMealDbProvider({ fetchImpl = global.fetch, random = Math.random, 
                 const meals = await request('lookup.php', { i: id }, deadline);
                 successfulLookups++;
                 const meal = meals.find(value => value?.idMeal === id);
-                return suggestionFromMeal(meal, category);
+                return suggestionFromMeal(meal, category, requestedArea);
             });
             for (const result of results) if (result.value) suggestions.push(result.value);
         }
@@ -245,7 +320,7 @@ function createMealDbProvider({ fetchImpl = global.fetch, random = Math.random, 
         return suggestions;
     }
 
-    return { fetchSuggestions };
+    return { fetchSuggestions, listAreas };
 }
 
 module.exports = { createMealDbProvider, MAIN_CATEGORIES };
