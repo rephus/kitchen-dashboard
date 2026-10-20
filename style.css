@@ -3429,3 +3429,27 @@ html {
     padding-right: 0;
     scroll-snap-type: none;
 }
+
+/* Recipes share the planner's persistent favorite stars. */
+.recipe-card {
+    position: relative;
+}
+.recipe-card-open {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+.recipe-card-open .recipe-card-inner {
+    width: 100%;
+}
+.recipe-card-open:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: -3px;
+}

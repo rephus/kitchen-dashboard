@@ -483,7 +483,7 @@ plannerFavoritesListEl.addEventListener('click', event => {
     }
 });
 
-document.getElementById('planner-screen').addEventListener('click', async event => {
+async function handleMealFavoriteClick(event) {
     const button = event.target.closest('[data-star-type]');
     if (!button) return;
     event.preventDefault();
@@ -507,14 +507,23 @@ document.getElementById('planner-screen').addEventListener('click', async event 
         showToast(error.message);
     } finally {
         favoriteSaves.delete(key);
-        const scrollPositions = plannerTabPanels.map(panel => panel.scrollTop);
-        renderWeeklyPlanner();
-        plannerTabPanels.forEach((panel, index) => { panel.scrollTop = scrollPositions[index]; });
+        if (button.closest('#recipes-screen')) {
+            const scrollTop = recipesListEl.scrollTop;
+            renderRecipesList(recipesSearchInput.value);
+            recipesListEl.scrollTop = scrollTop;
+        } else {
+            const scrollPositions = plannerTabPanels.map(panel => panel.scrollTop);
+            renderWeeklyPlanner();
+            plannerTabPanels.forEach((panel, index) => { panel.scrollTop = scrollPositions[index]; });
+        }
         const replacement = [...document.querySelectorAll('[data-star-type]')].find(item => item.dataset.starType === type
-            && item.dataset.starId === id && item.getClientRects().length > 0);
+            && item.dataset.starId === id && item.closest('.screen.active') && item.getClientRects().length > 0);
         if (replacement) replacement.focus({ preventScroll: true });
     }
-});
+}
+
+document.getElementById('planner-screen').addEventListener('click', handleMealFavoriteClick);
+document.getElementById('recipes-screen').addEventListener('click', handleMealFavoriteClick);
 
 function normalizePlannerIngredient(value) {
     return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
@@ -1392,7 +1401,7 @@ let selectedRecipeCategory = 'all';
 function setupRecipeCategories() {
     recipeCategoriesEl.replaceChildren();
     recipeEditCategoryInput.replaceChildren();
-    const categories = [{ id: 'all', label: 'Todas las recetas' }, ...recipeCategories];
+    const categories = [{ id: 'all', label: 'Todas las recetas' }, { id: 'favorites', label: '★ Favoritos' }, ...recipeCategories];
     categories.forEach(category => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -1409,7 +1418,7 @@ function setupRecipeCategories() {
             recipesListEl.scrollTop = 0;
         });
         recipeCategoriesEl.append(btn);
-        if (category.id !== 'all') {
+        if (category.id !== 'all' && category.id !== 'favorites') {
             const option = document.createElement('option');
             option.value = category.id;
             option.textContent = category.label;
@@ -1475,31 +1484,43 @@ function simpleMarkdownToHtml(md) {
 function renderRecipesList(filterText = '') {
     const q = filterText.trim().toLowerCase();
     recipesListEl.innerHTML = '';
-    const activeCategory = q ? 'all' : selectedRecipeCategory;
+    const favoritesOnly = selectedRecipeCategory === 'favorites';
+    const favoriteRecipeIds = new Set(mealFavorites.filter(item => item.type === 'recipe').map(item => item.id));
+    const activeCategory = favoritesOnly ? 'favorites' : q ? 'all' : selectedRecipeCategory;
     recipeCategoriesEl.querySelectorAll('button').forEach(btn => {
         const category = btn.dataset.category;
         btn.setAttribute('aria-pressed', String(category === activeCategory));
         btn.querySelector('.recipe-category-count').textContent = category === 'all'
             ? allRecipes.length
-            : allRecipes.filter(r => (r.category || 'uncategorized') === category).length;
+            : category === 'favorites'
+                ? allRecipes.filter(r => favoriteRecipeIds.has(r.slug)).length
+                : allRecipes.filter(r => (r.category || 'uncategorized') === category).length;
+        if (category === 'favorites') btn.disabled = mealFavoritesError;
     });
 
+    if (favoritesOnly && mealFavoritesError) {
+        recipesListEl.innerHTML = '<p class="recipes-empty">No se pudieron cargar tus favoritos. Vuelve a abrir Recetas para reintentar.</p>';
+        return;
+    }
+    const candidates = favoritesOnly ? allRecipes.filter(r => favoriteRecipeIds.has(r.slug)) : allRecipes;
     const filtered = q
-        ? allRecipes.filter(r =>
+        ? candidates.filter(r =>
             r.title.toLowerCase().includes(q) ||
             (r.altName && r.altName.toLowerCase().includes(q)) ||
             (r.slug && r.slug.toLowerCase().includes(q))
         )
-        : allRecipes.filter(r => selectedRecipeCategory === 'all' ||
+        : candidates.filter(r => favoritesOnly || selectedRecipeCategory === 'all' ||
             (r.category || 'uncategorized') === selectedRecipeCategory);
 
     const categoryLabel = recipeCategories.find(c => c.id === selectedRecipeCategory)?.label;
-    const scope = q ? 'Buscando en todas las categorías' : categoryLabel || 'Todas las recetas';
+    const scope = favoritesOnly ? 'Favoritos' : q ? 'Buscando en todas las categorías' : categoryLabel || 'Todas las recetas';
     recipesSummaryEl.textContent = `${scope} · ${filtered.length} receta${filtered.length === 1 ? '' : 's'}`;
 
     if (!filtered.length) {
         const message = !allRecipes.length ? 'Todavía no hay recetas.'
-            : q ? 'Ninguna receta coincide con la búsqueda.' : 'Todavía no hay recetas en esta categoría. Puedes elegir otra desde el menú Editar de la receta.';
+            : q ? 'Ninguna receta coincide con la búsqueda.'
+                : favoritesOnly ? 'Toca la estrella de una receta para guardarla en Favoritos.'
+                    : 'Todavía no hay recetas en esta categoría. Puedes elegir otra desde el menú Editar de la receta.';
         const empty = document.createElement('p');
         empty.className = 'recipes-empty';
         empty.textContent = message;
@@ -1508,10 +1529,12 @@ function renderRecipesList(filterText = '') {
     }
 
     filtered.forEach(r => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'recipe-card';
-        btn.innerHTML = `
+        const card = document.createElement('article');
+        card.className = 'recipe-card';
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'recipe-card-open';
+        openButton.innerHTML = `
                 <div class="recipe-card-inner">
                     <div class="recipe-thumb ${r.image ? '' : 'recipe-thumb-placeholder'}">
                         ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}">` : '📖'}
@@ -1519,8 +1542,10 @@ function renderRecipesList(filterText = '') {
                     <div class="recipe-title">${escapeHtml(r.title)}${r.generated ? '<span class="recipe-generated-badge">Auto</span>' : ''}</div>
                 </div>
             `;
-        btn.addEventListener('click', () => openRecipe(r.slug));
-        recipesListEl.appendChild(btn);
+        openButton.addEventListener('click', () => openRecipe(r.slug));
+        card.append(openButton);
+        card.insertAdjacentHTML('beforeend', renderMealFavoriteStar('recipe', r.slug));
+        recipesListEl.append(card);
     });
 }
 
@@ -1537,6 +1562,7 @@ async function loadRecipesList() {
         const [res, categoriesRes] = await Promise.all([
             fetch('/api/recipes'),
             fetch('/recipe-categories.json'),
+            loadMealFavorites(),
         ]);
         if (!res.ok || !categoriesRes.ok) throw new Error('Could not load recipes');
         allRecipes = await res.json();
