@@ -1979,7 +1979,7 @@ input[type="number"] {
 
 .planner-tabs {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     flex: 0 0 auto;
     gap: 4px;
     padding: 4px;
@@ -2224,6 +2224,113 @@ input[type="number"] {
 
 .planner-browser-panel.is-active {
     display: block;
+}
+
+.planner-discover-link {
+    display: block;
+    margin: 12px auto;
+    padding: 12px;
+    border: 0;
+    background: transparent;
+    color: #b6bdce;
+    font: inherit;
+    cursor: pointer;
+}
+
+.planner-suggestions-heading {
+    max-width: 660px;
+    margin: 8px 0 22px;
+}
+
+.planner-suggestions-heading h2 { font-size: 22px; margin-bottom: 8px; }
+.planner-suggestions-heading p { color: #a8aebb; font-size: 14px; line-height: 1.6; }
+.planner-suggestions-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.planner-suggestion-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #2a303c;
+    border-radius: 16px;
+    background: #151922;
+    color: var(--text);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+.planner-suggestion-card:hover { border-color: #787e8b; }
+.planner-suggestion-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.planner-suggestion-image {
+    display: flex;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    align-items: center;
+    justify-content: center;
+    background: #242a35;
+    font-size: 32px;
+}
+.planner-suggestion-image img { width: 100%; height: 100%; object-fit: cover; }
+.planner-suggestion-body { display: flex; flex: 1; flex-direction: column; gap: 9px; padding: 16px; }
+.planner-suggestion-body strong { font-size: 17px; line-height: 1.3; }
+.planner-suggestion-source { color: #b3bac7; font-size: 12px; line-height: 1.5; }
+.planner-suggestion-description { color: #a8aebb; font-size: 13px; line-height: 1.5; }
+.planner-suggestion-view { margin-top: auto; padding-top: 8px; color: #fb879a; font-size: 13px; font-weight: 650; }
+.planner-suggestion-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(560px, calc(100vw - 28px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    overflow-y: auto;
+    padding: 0;
+    border: 1px solid #414756;
+    border-radius: 20px;
+    background: #151922;
+    color: var(--text);
+    box-shadow: 0 24px 90px #0009;
+}
+.planner-suggestion-dialog::backdrop { background: #05070cbb; }
+.suggestion-dialog-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #ffffff50;
+    border-radius: 50%;
+    background: #10141de6;
+    color: white;
+    font-size: 27px;
+    cursor: pointer;
+}
+.suggestion-dialog-image { display: block; width: 100%; max-height: 250px; object-fit: cover; }
+.suggestion-dialog-copy { padding: 28px 24px 12px; }
+.suggestion-dialog-copy h2 { margin: 10px 0 14px; font-size: 25px; line-height: 1.2; padding-right: 30px; }
+.suggestion-dialog-copy > p:not(.planner-suggestion-source) { color: #c2c7d1; line-height: 1.7; }
+.suggestion-dialog-copy a { display: inline-block; margin-top: 18px; color: #fb879a; font-size: 14px; }
+.suggestion-dialog-actions { padding: 12px 24px 24px; }
+.suggestion-dialog-actions button {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.suggestion-dialog-actions button:disabled { opacity: .6; cursor: wait; }
+.suggestion-dialog-actions small { display: block; margin-top: 10px; color: #a8aebb; text-align: center; font-size: 12px; }
+#suggestion-dialog-error { margin-bottom: 14px; color: #ff9eae; line-height: 1.5; }
+@media (max-width: 600px) {
+    .planner-tabs { display: flex; overflow-x: auto; }
+    .planner-tabs button { flex: 1 0 auto; padding: 0 10px; white-space: nowrap; }
+    .planner-suggestions-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .planner-suggestion-body { padding: 12px; gap: 7px; }
+    .planner-suggestion-body strong { font-size: 14px; }
+    .planner-suggestion-description { font-size: 12px; }
 }
 
 .planner-list {
@@ -3186,4 +3293,57 @@ input[type="number"] {
     #recipes-screen .recipes-empty {
         grid-column: 1 / -1;
     }
+}
+
+/* Selection-based favorites. */
+.planner-section-intro {
+    margin: 4px 0 18px;
+}
+.planner-section-intro h2 {
+    margin-bottom: 6px;
+    color: #f3f4f6;
+    font-size: 20px;
+}
+.planner-section-intro p {
+    color: #aab0bc;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.planner-favorites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.planner-favorite-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--planner-border);
+    border-radius: 14px;
+    background: var(--planner-surface);
+}
+.planner-favorite-card div {
+    min-width: 0;
+}
+.planner-favorite-card strong,
+.planner-favorite-card small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+.planner-favorite-card small {
+    margin-top: 6px;
+    color: #aab0bc;
+    font-size: 12px;
+}
+.planner-favorite-card button {
+    flex-shrink: 0;
+    min-height: 42px;
+    padding: 8px 14px;
+}
+
+/* Keep horizontal planner filters from shifting the whole viewport. */
+html {
+    overflow-x: clip;
 }

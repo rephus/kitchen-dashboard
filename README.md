@@ -54,6 +54,29 @@ npm run dev
 
 The server will run on port 8002 by default.
 
+## New recipe suggestions
+
+Weekly Plan → **New recipes** offers 15 curated Allrecipes main courses with
+Spanish descriptions, source links, cooking times, and serving sizes. Open a
+recipe and choose **Import & add to plan** to save its ingredients and method
+and select it for next week. Imported recipes disappear from the suggestions;
+retrying an import reuses the saved recipe. Changes to the menu require another
+shopping review before the order is ready.
+
+The source-checked recipe snapshots live in `recipe-suggestion-catalog.json`, so
+importing does not depend on the source website accepting a server request.
+Suggestions are a curated catalog; they do not refresh automatically each week.
+
+## Meal selection history and favorites
+
+Weekly Plan → Browse → **Favoritos** ranks recipes and quick meals by the number
+of planning weeks in which you selected them. New selections append timestamped
+events to `data/meal-selections.jsonl`; existing selections are not backfilled.
+Each meal counts once per next-week period (Monday in Europe/Madrid), so toggling
+or retrying does not inflate popularity. Importing a suggestion and generating a
+weekly idea also record selections. The history survives restarts and is available
+at `GET /api/meal-popularity`. Keep the JSONL file with the other `data/` backups.
+
 ## Recipe Scanner 📸
 
 The recipe scanner uses Claude's Vision API to extract recipes from cookbook or magazine photos directly from your phone's camera.

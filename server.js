@@ -7,7 +7,12 @@ const Anthropic = require('@anthropic-ai/sdk');
 // Load .env
 require('dotenv').config();
 const { readRecipeIngredients } = require('./ingredient-normalizer');
+const { createMealSelectionHistory } = require('./meal-selection-history');
+const mealSelectionHistory = createMealSelectionHistory({
+    filePath: path.join(__dirname, 'data', 'meal-selections.jsonl'),
+});
 const NORMALIZED_RECIPES_DIR = path.join(__dirname, 'data', 'recipe-ingredients');
+const { createRecipeSuggestions } = require('./recipe-suggestions');
 const { handlePrinterAPI } = require('./printer-api');
 const { groupShoppingItems, formatGroupedShoppingList } = require('./shopping-grouper');
 const {
@@ -632,7 +637,7 @@ function setShoppingItemOrderInclusion(id, included) {
     return expandWeeklyPlan(plan);
 }
 
-function saveWeeklyPlan(data) {
+function saveWeeklyPlan(data, { selectionSource = 'weekly-planner' } = {}) {
     if (!Array.isArray(data.selectedRecipes)) {
         const error = new Error('selectedRecipes must be an array');
         error.statusCode = 400;
@@ -725,8 +730,17 @@ function saveWeeklyPlan(data) {
         updatedAt: new Date().toISOString(),
     };
     writeWeeklyPlanFile(plan);
-
-    return expandWeeklyPlan(plan);
+    let selectionHistoryWarning;
+    try {
+        mealSelectionHistory.recordSelections(previous, plan, {
+            recipes: selectedRecipeDetails, quickMeals: selectedQuickMealDetails, source: selectionSource,
+        });
+    } catch (error) {
+        console.error('Meal selection history error:', error.message);
+        selectionHistoryWarning = 'Menú guardado, pero no se pudo registrar la selección en favoritos.';
+    }
+    const expanded = expandWeeklyPlan(plan);
+    return selectionHistoryWarning ? { ...expanded, selectionHistoryWarning } : expanded;
 }
 
 // ===================
@@ -735,6 +749,12 @@ function saveWeeklyPlan(data) {
 const RECIPES_DIR = path.join(__dirname, 'recipes');
 const RECIPE_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
 const RECIPE_CATEGORIES = require('./recipe-categories.json');
+const recipeSuggestionsService = createRecipeSuggestions({
+    catalog: require('./recipe-suggestion-catalog.json'),
+    recipesDir: RECIPES_DIR,
+    listRecipes, readRecipeFile, getRecipe, uniqueRecipeSlug,
+    readWeeklyPlan, saveWeeklyPlan, expandWeeklyPlan,
+});
 
 function getRecipeCategory(meta) {
     return RECIPE_CATEGORIES.some(c => c.id === meta.category) ? meta.category : 'uncategorized';
@@ -752,7 +772,8 @@ function findRecipeImage(slug) {
             return `/recipes/${filename}`;
         }
     }
-    return null;
+    const sourceImage = readRecipeFile(slug)?.meta.source_image;
+    return sourceImage && /^https:\/\/[^\s<>"']+$/i.test(sourceImage) ? sourceImage : null;
 }
 
 // Parse YAML-ish frontmatter at the top of a markdown file. Only supports flat
@@ -830,6 +851,7 @@ function getRecipe(slug) {
         generated: isGeneratedRecipe(r.meta),
         generatedAt: r.meta.generated_at || null,
         weeklyRequestId: r.meta.weekly_request_id || null,
+        sourceUrl: /^https:\/\/[^\s<>"']+$/i.test(r.meta.source || '') ? r.meta.source : null,
     };
 }
 
@@ -931,15 +953,14 @@ async function generateWeeklyPlanRecipe(requestId) {
         request.recipeTitle = recipe.title;
         request.generatedAt = recipe.generatedAt;
         delete request.lastError;
-        latestPlan.selectedRecipes = [...new Set([...latestPlan.selectedRecipes, recipe.slug])];
         latestPlan.orderReady = false;
         latestPlan.updatedAt = new Date().toISOString();
         writeWeeklyPlanFile(latestPlan);
         return saveWeeklyPlan({
-            selectedRecipes: latestPlan.selectedRecipes,
+            selectedRecipes: [...new Set([...latestPlan.selectedRecipes, recipe.slug])],
             selectedQuickMeals: latestPlan.selectedQuickMeals,
             orderReady: false,
-        });
+        }, { selectionSource: 'weekly-idea' });
     } catch (error) {
         const latestPlan = readWeeklyPlan();
         const request = latestPlan.requests.find(item => item.id === requestId);
@@ -1452,6 +1473,17 @@ async function handleAPI(req, res, pathname) {
         return;
     }
 
+    if (pathname === '/api/meal-popularity' && req.method === 'GET') {
+        try {
+            res.end(JSON.stringify(mealSelectionHistory.getPopularity()));
+        } catch (error) {
+            console.error('Meal popularity error:', error.message);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'No se pudo leer el historial de selecciones.' }));
+        }
+        return;
+    }
+
     // GET /api/weekly-plan - Read the persisted plan for next week
     if (pathname === '/api/weekly-plan' && req.method === 'GET') {
         res.end(JSON.stringify(expandWeeklyPlan(readWeeklyPlan())));
@@ -1694,6 +1726,22 @@ async function handleAPI(req, res, pathname) {
             const data = body ? JSON.parse(body) : {};
             res.statusCode = 201;
             res.end(JSON.stringify(createQuickMeal(data)));
+        } catch (error) {
+            res.statusCode = error.statusCode || 400;
+            res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+    }
+
+    // Curated main courses; importing saves the recipe and selects it in one operation.
+    if (pathname === '/api/recipe-suggestions' && req.method === 'GET') {
+        res.end(JSON.stringify(recipeSuggestionsService.listSuggestions()));
+        return;
+    }
+    const suggestionImportMatch = pathname.match(/^\/api\/recipe-suggestions\/([a-z0-9-]+)\/import$/);
+    if (suggestionImportMatch && req.method === 'POST') {
+        try {
+            res.end(JSON.stringify(recipeSuggestionsService.importSuggestion(suggestionImportMatch[1])));
         } catch (error) {
             res.statusCode = error.statusCode || 400;
             res.end(JSON.stringify({ error: error.message }));

@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a1a2e">
     <title>Kitchen</title>
-    <link rel="stylesheet" href="style.css?v=recipes-mobile-20261018a">
+    <link rel="stylesheet" href="style.css?v=meal-favorites-20261020a">
 </head>
 <body>
     <!-- Main Dashboard -->
@@ -148,6 +148,9 @@
             <button type="button" data-planner-tab="browse">
                 <span>Browse</span><span class="planner-tab-count" id="planner-browse-count">0</span>
             </button>
+            <button type="button" data-planner-tab="suggestions">
+                <span>New recipes</span><span class="planner-tab-count" id="planner-suggestions-count">…</span>
+            </button>
             <button type="button" data-planner-tab="shopping">
                 <span>Shopping</span><span class="planner-tab-count" id="planner-shopping-count">0</span>
             </button>
@@ -160,12 +163,22 @@
             <section class="planner-tab-panel is-active" data-planner-panel="menu" aria-label="Selected menu">
                 <div id="planner-selected" class="planner-selected"></div>
                 <button type="button" class="planner-add-meals" data-open-planner-tab="browse">＋ Añadir platos</button>
+                <button type="button" class="planner-discover-link" data-open-planner-tab="suggestions">✦ Discover new recipes</button>
+            </section>
+
+            <section class="planner-tab-panel" data-planner-panel="suggestions" aria-labelledby="planner-suggestions-heading">
+                <header class="planner-suggestions-heading">
+                    <h2 id="planner-suggestions-heading">New suggested recipes</h2>
+                    <p>Main courses to try. Open a recipe to learn more, then import it into your recipes and next week's menu.</p>
+                </header>
+                <div id="planner-suggestions-list" class="planner-suggestions-list" aria-live="polite"></div>
             </section>
 
             <section class="planner-tab-panel" data-planner-panel="browse" aria-label="Browse recipes">
                 <input type="search" id="planner-search" class="planner-search" placeholder="Buscar en todas las recetas…" autocomplete="off">
                 <nav class="planner-filters" aria-label="Recipe browser sections">
                     <button type="button" class="is-active" data-planner-filter="mains">Todos los platos principales</button>
+                    <button type="button" data-planner-filter="favorites">Favoritos</button>
                     <button type="button" data-planner-filter="quick">Platos rápidos</button>
                     <button type="button" data-planner-filter="all">Todas las recetas</button>
                     <button type="button" data-planner-filter="ideas">Ideas y listas</button>
@@ -174,6 +187,14 @@
                 <div class="planner-browser-panel is-active" data-planner-browser="recipes">
                     <div id="planner-list" class="planner-list"></div>
                 </div>
+
+                <section class="planner-browser-panel" data-planner-browser="favorites" aria-label="Favoritos">
+                    <div class="planner-section-intro">
+                        <h2>Tus favoritos</h2>
+                        <p>Los platos que más eliges. Cada receta cuenta una vez por semana planificada.</p>
+                    </div>
+                    <div id="planner-favorites-list" class="planner-favorites-list"></div>
+                </section>
 
                 <div class="planner-browser-panel" data-planner-browser="quick">
                     <div id="planner-quick-list" class="planner-quick-list"></div>
@@ -322,6 +343,15 @@
     </div>
 
     <div id="toast" class="toast"></div>
-    <script src="app.js?v=weekly-tabs-20260924i"></script>
+    <dialog id="planner-suggestion-dialog" class="planner-suggestion-dialog" aria-labelledby="suggestion-dialog-title">
+        <button type="button" id="suggestion-dialog-close" class="suggestion-dialog-close" aria-label="Close recipe">×</button>
+        <div id="suggestion-dialog-content"></div>
+        <div class="suggestion-dialog-actions">
+            <p id="suggestion-dialog-error" role="alert" hidden></p>
+            <button type="button" id="suggestion-import-btn">Import &amp; add to plan</button>
+            <small>Saves the recipe and selects it for next week.</small>
+        </div>
+    </dialog>
+    <script src="app.js?v=meal-favorites-20261020a"></script>
 </body>
 </html>

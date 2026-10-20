@@ -59,6 +59,7 @@ document.getElementById('btn-planner').addEventListener('click', () => {
 // ===================
 const plannerListEl = document.getElementById('planner-list');
 const plannerQuickListEl = document.getElementById('planner-quick-list');
+const plannerFavoritesListEl = document.getElementById('planner-favorites-list');
 const plannerSelectedEl = document.getElementById('planner-selected');
 const plannerReadyEl = document.getElementById('planner-order-ready');
 const plannerReadyCardEl = document.getElementById('planner-ready-card');
@@ -71,6 +72,9 @@ const plannerPantryListEl = document.getElementById('planner-pantry-list');
 const plannerOtherShoppingListEl = document.getElementById('planner-other-shopping-list');
 const plannerRulesListEl = document.getElementById('planner-rules-list');
 const plannerSearchEl = document.getElementById('planner-search');
+const plannerSuggestionsEl = document.getElementById('planner-suggestions-list');
+const suggestionDialog = document.getElementById('planner-suggestion-dialog');
+const suggestionImportBtn = document.getElementById('suggestion-import-btn');
 const plannerTabs = [...document.querySelectorAll('[data-planner-tab]')];
 const plannerTabPanels = [...document.querySelectorAll('[data-planner-panel]')];
 const plannerFilters = [...document.querySelectorAll('[data-planner-filter]')];
@@ -92,8 +96,169 @@ let weeklyPlanState = {
 let allQuickMeals = [];
 let allRecurringItems = [];
 let allShoppingRules = [];
+let mealPopularity = [];
+let mealPopularityError = false;
 let activePlannerTab = 'menu';
 let activePlannerFilter = 'mains';
+let recipeSuggestions = [];
+let suggestionsStatus = 'loading';
+let activeSuggestion = null;
+let importingSuggestion = false;
+
+function suggestionMeta(recipe) {
+    return [recipe.source, recipe.totalMinutes ? `${recipe.totalMinutes} min` : '',
+        recipe.servings ? `${recipe.servings} raciones` : ''].filter(Boolean).join(' · ');
+}
+
+function renderNewRecipeSuggestions() {
+    document.getElementById('planner-suggestions-count').textContent = suggestionsStatus === 'loading'
+        ? '…' : suggestionsStatus === 'error' ? '!' : recipeSuggestions.length;
+    if (suggestionsStatus === 'loading') {
+        plannerSuggestionsEl.innerHTML = '<p class="planner-empty-selection">Loading new recipes…</p>';
+        return;
+    }
+    if (suggestionsStatus === 'error') {
+        plannerSuggestionsEl.innerHTML = '<div class="planner-empty-selection">Could not load suggestions. <button type="button" data-retry-suggestions>Try again</button></div>';
+        return;
+    }
+    plannerSuggestionsEl.innerHTML = recipeSuggestions.length ? recipeSuggestions.map(recipe => `
+        <button type="button" class="planner-suggestion-card" data-open-suggestion="${escapeHtml(recipe.id)}">
+            <span class="planner-suggestion-image">
+                ${recipe.imageUrl ? `<img src="${escapeHtml(recipe.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span aria-hidden="true">🍽️</span>'}
+            </span>
+            <span class="planner-suggestion-body">
+                <span class="planner-suggestion-source">${escapeHtml(suggestionMeta(recipe))}</span>
+                <strong>${escapeHtml(recipe.title)}</strong>
+                <span class="planner-suggestion-description">${escapeHtml(recipe.description)}</span>
+                <span class="planner-suggestion-view">View recipe →</span>
+            </span>
+        </button>`).join('') : '<p class="planner-empty-selection">You have imported all these suggestions. Find your saved recipes in Browse.</p>';
+}
+
+async function loadRecipeSuggestions() {
+    suggestionsStatus = 'loading';
+    renderNewRecipeSuggestions();
+    try {
+        const res = await fetch('/api/recipe-suggestions');
+        if (!res.ok) throw new Error('Could not load suggestions');
+        recipeSuggestions = await res.json();
+        suggestionsStatus = 'ready';
+    } catch (error) {
+        suggestionsStatus = 'error';
+    }
+    renderNewRecipeSuggestions();
+}
+
+function openRecipeSuggestion(id) {
+    if (importingSuggestion) return;
+    const recipe = recipeSuggestions.find(item => item.id === id);
+    if (!recipe) return;
+    activeSuggestion = recipe;
+    document.getElementById('suggestion-dialog-content').innerHTML = `
+        ${recipe.imageUrl ? `<img class="suggestion-dialog-image" src="${escapeHtml(recipe.imageUrl)}" alt="" referrerpolicy="no-referrer">` : ''}
+        <div class="suggestion-dialog-copy">
+            <p class="planner-suggestion-source">Plato principal · ${escapeHtml(suggestionMeta(recipe))}</p>
+            <h2 id="suggestion-dialog-title">${escapeHtml(recipe.title)}</h2>
+            <p>${escapeHtml(recipe.description)}</p>
+            <a href="${escapeHtml(recipe.sourceUrl)}" target="_blank" rel="noopener noreferrer">View original on ${escapeHtml(recipe.source)} ↗</a>
+        </div>`;
+    document.getElementById('suggestion-dialog-error').hidden = true;
+    suggestionImportBtn.disabled = false;
+    suggestionImportBtn.textContent = 'Import & add to plan';
+    suggestionDialog.showModal();
+}
+
+plannerSuggestionsEl.addEventListener('click', event => {
+    const card = event.target.closest('[data-open-suggestion]');
+    if (card) openRecipeSuggestion(card.dataset.openSuggestion);
+    if (event.target.closest('[data-retry-suggestions]')) loadRecipeSuggestions();
+});
+plannerSuggestionsEl.addEventListener('error', event => {
+    if (event.target.tagName === 'IMG') event.target.parentElement.innerHTML = '<span aria-hidden="true">🍽️</span>';
+}, true);
+suggestionDialog.addEventListener('error', event => {
+    if (event.target.tagName === 'IMG') event.target.remove();
+}, true);
+document.getElementById('suggestion-dialog-close').addEventListener('click', () => suggestionDialog.close());
+suggestionDialog.addEventListener('click', event => {
+    if (event.target === suggestionDialog) {
+        const bounds = suggestionDialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right
+            || event.clientY < bounds.top || event.clientY > bounds.bottom) suggestionDialog.close();
+    }
+});
+suggestionImportBtn.addEventListener('click', async () => {
+    if (!activeSuggestion || importingSuggestion) return;
+    importingSuggestion = true;
+    suggestionImportBtn.disabled = true;
+    suggestionImportBtn.textContent = 'Importing…';
+    const errorEl = document.getElementById('suggestion-dialog-error');
+    errorEl.hidden = true;
+    try {
+        const res = await fetch(`/api/recipe-suggestions/${encodeURIComponent(activeSuggestion.id)}/import`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not import recipe');
+        weeklyPlanState = data.plan;
+        await loadMealPopularity();
+        recipeSuggestions = data.suggestions;
+        allRecipes = [...allRecipes.filter(item => item.slug !== data.recipe.slug), data.recipe];
+        renderWeeklyPlanner();
+        renderNewRecipeSuggestions();
+        suggestionDialog.close();
+        setPlannerTab('menu');
+        showToast(data.plan.selectionHistoryWarning || 'Recipe imported and added to next week · order needs review');
+    } catch (error) {
+        errorEl.textContent = error.message;
+        errorEl.hidden = false;
+    } finally {
+        importingSuggestion = false;
+        suggestionImportBtn.disabled = false;
+        suggestionImportBtn.textContent = 'Import & add to plan';
+    }
+});
+
+function renderMealFavorites(query = '') {
+    if (mealPopularityError) {
+        plannerFavoritesListEl.innerHTML = '<p class="planner-empty-selection">No se pudo leer el historial de selecciones. Vuelve a abrir el plan para reintentar.</p>';
+        return;
+    }
+    const favorites = mealPopularity.map(item => {
+        const meal = item.type === 'recipe'
+            ? allRecipes.find(recipe => recipe.slug === item.id)
+            : allQuickMeals.find(quick => quick.id === item.id);
+        return meal && { ...item, title: meal.title };
+    }).filter(item => item && (!query || item.title.toLocaleLowerCase('es').includes(query)));
+    plannerFavoritesListEl.innerHTML = favorites.length ? favorites.map(item => {
+        const selected = item.type === 'recipe'
+            ? weeklyPlanState.selectedRecipes.includes(item.id)
+            : weeklyPlanState.selectedQuickMeals.includes(item.id);
+        return `<article class="planner-favorite-card">
+            <div><strong>${escapeHtml(item.title)}</strong><small>Elegido en ${item.count} semana${item.count === 1 ? '' : 's'} · ${item.type === 'quick' ? 'Plato rápido' : 'Receta'}</small></div>
+            <button type="button" class="planner-add-btn ${selected ? 'is-selected' : ''}" data-favorite-type="${item.type}" data-favorite-id="${escapeHtml(item.id)}">${selected ? '✓ En el menú' : 'Añadir'}</button>
+        </article>`;
+    }).join('') : `<p class="planner-empty-selection">${query ? 'Ningún favorito coincide con la búsqueda.' : 'Tus favoritos aparecerán aquí a medida que elijas platos. El historial empieza con tus próximas selecciones.'}</p>`;
+}
+
+async function loadMealPopularity() {
+    try {
+        const res = await fetch('/api/meal-popularity');
+        if (!res.ok) throw new Error('Could not load meal popularity');
+        mealPopularity = await res.json();
+        mealPopularityError = false;
+    } catch (error) {
+        mealPopularityError = true;
+    }
+}
+
+plannerFavoritesListEl.addEventListener('click', event => {
+    const button = event.target.closest('[data-favorite-type]');
+    if (!button) return;
+    const { favoriteType: type, favoriteId: id } = button.dataset;
+    const selected = type === 'recipe'
+        ? weeklyPlanState.selectedRecipes.includes(id)
+        : weeklyPlanState.selectedQuickMeals.includes(id);
+    changePlannerSelection(type, id, !selected);
+});
 
 function normalizePlannerIngredient(value) {
     return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
@@ -111,11 +276,8 @@ function setPlannerFilter(filter) {
     activePlannerFilter = filter;
     plannerFilters.forEach(button => button.classList.toggle('is-active', button.dataset.plannerFilter === filter));
     plannerBrowserPanels.forEach(panel => {
-        const visible = filter === 'quick'
-            ? panel.dataset.plannerBrowser === 'quick'
-            : filter === 'ideas'
-                ? panel.dataset.plannerBrowser === 'ideas'
-                : panel.dataset.plannerBrowser === 'recipes';
+        const browser = ['quick', 'ideas', 'favorites'].includes(filter) ? filter : 'recipes';
+        const visible = panel.dataset.plannerBrowser === browser;
         panel.classList.toggle('is-active', visible);
     });
     plannerSearchEl.classList.toggle('is-hidden', filter === 'ideas');
@@ -357,6 +519,8 @@ function renderWeeklyPlanner() {
         ? visibleQuickMeals.map(renderQuickMealSuggestion).join('')
         : '<p class="planner-empty-selection">Ningún plato rápido coincide con la búsqueda.</p>';
 
+    renderMealFavorites(query);
+
     plannerSelectedEl.innerHTML = weeklyPlanState.selected.length
         ? weeklyPlanState.selected.map(renderSelectedMeal).join('')
         : '<p class="planner-empty-selection">Choose a few meals for next week. Their ingredients will appear in Shopping.</p>';
@@ -428,7 +592,9 @@ async function saveWeeklyPlan(selectedRecipes, selectedQuickMeals, orderReady, s
     if (!res.ok) throw new Error(data.error || 'Could not save next week');
     weeklyPlanState = data;
     renderWeeklyPlanner();
-    if (successMessage) showToast(successMessage);
+    if (successMessage) showToast(data.selectionHistoryWarning || successMessage);
+    await loadMealPopularity();
+    renderMealFavorites(plannerSearchEl.value.trim().toLocaleLowerCase('es'));
 }
 
 async function changePlannerSelection(type, id, add) {
@@ -455,6 +621,7 @@ async function changePlannerSelection(type, id, add) {
 async function loadWeeklyPlanner() {
     plannerListEl.innerHTML = '<p class="planner-empty-selection">Loading next week…</p>';
     plannerSelectedEl.innerHTML = '';
+    loadRecipeSuggestions();
     try {
         const [recipesRes, quickMealsRes, planRes, recurringRes, rulesRes] = await Promise.all([
             fetch('/api/recipes'),
@@ -462,6 +629,7 @@ async function loadWeeklyPlanner() {
             fetch('/api/weekly-plan'),
             fetch('/api/recurring-items'),
             fetch('/api/shopping-rules'),
+            loadMealPopularity(),
         ]);
         if (!recipesRes.ok || !quickMealsRes.ok || !planRes.ok || !recurringRes.ok || !rulesRes.ok) throw new Error('Could not load next week');
         allRecipes = await recipesRes.json();
@@ -517,6 +685,7 @@ async function createPlannerRequest(type, text) {
     if (type === 'recipe-idea' && !data.generationWarning) {
         const recipesRes = await fetch('/api/recipes');
         if (recipesRes.ok) allRecipes = await recipesRes.json();
+        await loadMealPopularity();
     }
     renderWeeklyPlanner();
     return data;
@@ -746,8 +915,9 @@ plannerRequestsListEl.addEventListener('click', async event => {
             weeklyPlanState = data;
             const recipesRes = await fetch('/api/recipes');
             if (recipesRes.ok) allRecipes = await recipesRes.json();
+            await loadMealPopularity();
             renderWeeklyPlanner();
-            showToast('Recipe generated, saved and selected');
+            showToast(data.selectionHistoryWarning || 'Recipe generated, saved and selected');
         } catch (error) {
             const planRes = await fetch('/api/weekly-plan');
             if (planRes.ok) weeklyPlanState = await planRes.json();
@@ -1082,9 +1252,9 @@ function renderRecipesList(filterText = '') {
         btn.innerHTML = `
                 <div class="recipe-card-inner">
                     <div class="recipe-thumb ${r.image ? '' : 'recipe-thumb-placeholder'}">
-                        ${r.image ? `<img src="${r.image}" alt="${r.title}">` : '📖'}
+                        ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}">` : '📖'}
                     </div>
-                    <div class="recipe-title">${r.title}${r.generated ? '<span class="recipe-generated-badge">Auto</span>' : ''}</div>
+                    <div class="recipe-title">${escapeHtml(r.title)}${r.generated ? '<span class="recipe-generated-badge">Auto</span>' : ''}</div>
                 </div>
             `;
         btn.addEventListener('click', () => openRecipe(r.slug));
@@ -1125,12 +1295,15 @@ function renderRecipeDetail(recipe) {
     recipeDetailTitleEl.textContent = recipe.title;
     let html = `
         <div class="recipe-detail-image${recipe.image ? '' : ' recipe-detail-image-empty'}">
-            ${recipe.image ? `<img src="${recipe.image}" alt="${recipe.title}">` : ''}
+            ${recipe.image ? `<img src="${escapeHtml(recipe.image)}" alt="${escapeHtml(recipe.title)}">` : ''}
             <button class="recipe-regen-btn" id="recipe-regen-btn" title="Regenerate image">⟳</button>
         </div>
     `;
     if (recipe.generated) {
         html += '<div class="recipe-generated-note"><strong>Autogenerated recipe</strong><span>Created from a weekly idea. Review and edit it before relying on it again.</span></div>';
+    }
+    if (recipe.sourceUrl) {
+        html += `<p><a href="${escapeHtml(recipe.sourceUrl)}" target="_blank" rel="noopener noreferrer">View original recipe ↗</a></p>`;
     }
     html += simpleMarkdownToHtml(recipe.content);
     recipeDetailContentEl.innerHTML = html;
